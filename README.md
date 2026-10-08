@@ -122,6 +122,8 @@ npm run client:create -- my-service   # API 키 발급 (한 번만 표시)
 
 - 같은 알림의 job이 두 번 실행돼도 발송은 한 번입니다. 이미 `SENT`면 건너뛰고, 다른 Worker가 lease를 잡고 있으면 Provider를 부르지 않고 job을 실패시킵니다(E2E로 확인).
 - Provider는 공통 인터페이스 뒤에 있습니다(어댑터 패턴). 테스트는 결과·지연·실패율을 주입할 수 있는 `FakeProvider`를 씁니다. 채널별 Provider는 `EMAIL_PROVIDER`, `PUSH_PROVIDER`로 고릅니다.
+- 실제 이메일은 `EMAIL_PROVIDER=ses`로 AWS SES v2(서울 리전, 샌드박스)를 통해 보냅니다. SES SDK의 자체 재시도는 끄고(`maxAttempts: 1`) 재시도는 큐가 맡습니다. 그래야 시도마다 `delivery_attempt`에 남고 백오프가 한곳에서 관리됩니다. 메일박스 시뮬레이터 주소로 보내 `SENT`와 SES `MessageId` 저장을 확인했습니다.
+- SES 오류 분류: 스로틀링·한도·SES 내부 오류·네트워크 오류는 일시 오류, `MessageRejected`·`BadRequestException`(잘못된 주소, 샌드박스의 미인증 수신자)은 영구 오류입니다. 계정 정지·발송 일시 중지처럼 메시지 탓이 아닌 오류는 일시 오류로 분류해 DLQ에서 다시 보낼 수 있게 했습니다.
 - `WORKERS_ENABLED=false`면 API만 띄웁니다.
 - 재시도 횟수·백오프·DLQ·수신거부 검사는 Phase 3에서 추가합니다.
 
