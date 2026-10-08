@@ -36,6 +36,21 @@ export const ProblemTypes = {
     title: 'Idempotency-Key was already used with a different request body',
     status: HttpStatus.UNPROCESSABLE_ENTITY,
   },
+  TEMPLATE_KEY_CONFLICT: {
+    type: '/problems/template-key-conflict',
+    title: 'A template with this key already exists',
+    status: HttpStatus.CONFLICT,
+  },
+  PRECONDITION_FAILED: {
+    type: '/problems/precondition-failed',
+    title: 'The resource was modified; If-Match does not match its ETag',
+    status: HttpStatus.PRECONDITION_FAILED,
+  },
+  PRECONDITION_REQUIRED: {
+    type: '/problems/precondition-required',
+    title: 'If-Match header is required for this request',
+    status: HttpStatus.PRECONDITION_REQUIRED,
+  },
   INTERNAL_ERROR: {
     type: '/problems/internal-error',
     title: 'Internal server error',
