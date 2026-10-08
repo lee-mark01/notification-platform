@@ -5,7 +5,7 @@
 이메일(AWS SES)과 푸시(FCM)를 하나의 인터페이스로 발송하는 알림 플랫폼입니다.
 재시도, Dead Letter Queue, 멱등성, 웹훅 기반 상태 추적을 갖추는 것을 목표로 합니다.
 
-> 개발 진행 중입니다.
+> 개발 진행 중입니다. 기반(Phase 0)과 설계(Phase 1)를 마쳤고, 다음은 큐와 Worker를 통한 실제 발송입니다.
 
 ## 기술 스택
 
@@ -15,6 +15,17 @@
 - AWS SES, SNS, Firebase Cloud Messaging
 - Jest, Testcontainers, k6
 - Docker Compose, GitHub Actions
+
+## 설계 문서
+
+코드를 쓰기 전에 데이터 모델, 상태 전이, API 계약, 핵심 결정을 먼저 정했습니다. 장애 시나리오 13개가 각각 어떤 상태 전이와 데이터로 처리되는지는 상태 머신 문서에 정리했습니다.
+
+| 문서                                      | 내용                                                                                       |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------ |
+| [ERD](docs/design/erd.md)                 | 테이블·인덱스(각 인덱스가 어떤 조회를 위한 것인지), 대량 insert·통계·이력 보관에 대한 판단 |
+| [상태 머신](docs/design/state-machine.md) | 알림 상태와 조건부 UPDATE 전이, 멱등 키 처리, 장애 시나리오 13개 매핑, 반례 검토로 고친 것 |
+| [API 명세](docs/design/api.md)            | 인증, `Idempotency-Key` 규칙, 엔드포인트별 요청·응답·상태 코드·problem type                |
+| [ADR](docs/adr/README.md)                 | 큐 분리, 전달 보장과 멱등성, Outbox 대신 Sweeper, TypeORM                                  |
 
 ## 실행
 
