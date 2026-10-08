@@ -10,6 +10,7 @@ const config: Config = {
   collectCoverageFrom: ['src/**/*.(t|j)s'],
   coverageDirectory: './coverage',
   testEnvironment: 'node',
+  setupFiles: ['reflect-metadata'],
 };
 
 export default config;
