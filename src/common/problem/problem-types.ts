@@ -41,6 +41,11 @@ export const ProblemTypes = {
     title: 'A template with this key already exists',
     status: HttpStatus.CONFLICT,
   },
+  TEMPLATE_UNUSABLE: {
+    type: '/problems/template-unusable',
+    title: 'The template cannot be used for this request',
+    status: HttpStatus.UNPROCESSABLE_ENTITY,
+  },
   PRECONDITION_FAILED: {
     type: '/problems/precondition-failed',
     title: 'The resource was modified; If-Match does not match its ETag',
