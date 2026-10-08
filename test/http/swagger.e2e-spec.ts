@@ -17,7 +17,12 @@ describe('Swagger (e2e)', () => {
         expect.arrayContaining(['ProblemDetailsDto', 'FieldErrorDto']),
       );
       expect(Object.keys(doc.paths)).toEqual(
-        expect.arrayContaining(['/health/live', '/health/ready']),
+        expect.arrayContaining([
+          '/health/live',
+          '/health/ready',
+          '/admin/templates',
+          '/admin/templates/{id}',
+        ]),
       );
     } finally {
       await app.close();
