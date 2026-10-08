@@ -4,6 +4,7 @@ import { DataSource, Repository } from 'typeorm';
 import { ApiClient } from '../clients/api-client.entity';
 import { IdempotencyService } from '../common/idempotency/idempotency.service';
 import { requestHash } from '../common/idempotency/request-hash';
+import { Dispatcher } from '../dispatch/dispatcher.service';
 import { ProblemTypes } from '../common/problem/problem-types';
 import {
   type FieldError,
@@ -57,10 +58,12 @@ export class NotificationsService {
     private readonly users: Repository<AppUser>,
     private readonly templates: TemplatesService,
     private readonly idempotency: IdempotencyService,
+    private readonly dispatcher: Dispatcher,
   ) {}
 
   /**
-   * Accepts a send request. The idempotency key is taken first, so a replay
+   * Accepts a send request and hands it to the dispatcher after commit
+   * (ADR-0003). The idempotency key is taken first, so a replay
    * returns the stored response even if the template changed since. Only a
    * successful acceptance is remembered: if preparing or saving fails, the key
    * is released and the client may retry with the same key.
@@ -84,34 +87,37 @@ export class NotificationsService {
       };
     }
 
+    let notification: Notification;
     try {
       const prepared = await this.prepare(client, dto);
-      const notification = await this.dataSource.transaction(
-        async (manager) => {
-          const saved = await manager.save(Notification, prepared);
-          await this.idempotency.complete(
-            manager,
-            begun.recordId,
-            begun.lockToken,
-            {
-              status: HttpStatus.ACCEPTED,
-              body: { id: saved.id },
-              notificationId: saved.id,
-            },
-          );
-          return saved;
-        },
-      );
-      return {
-        status: HttpStatus.ACCEPTED,
-        body: { id: notification.id },
-        replayed: false,
-      };
+      notification = await this.dataSource.transaction(async (manager) => {
+        const saved = await manager.save(Notification, prepared);
+        await this.idempotency.complete(
+          manager,
+          begun.recordId,
+          begun.lockToken,
+          {
+            status: HttpStatus.ACCEPTED,
+            body: { id: saved.id },
+            notificationId: saved.id,
+          },
+        );
+        return saved;
+      });
     } catch (error) {
       // Fenced: a no-op if another request has since taken over the key.
       await this.idempotency.abandon(begun.recordId, begun.lockToken);
       throw error;
     }
+
+    // Outside the transaction: the notification is already committed, so a
+    // queue failure leaves it PENDING for the sweeper and still answers 202.
+    await this.dispatcher.dispatch(notification);
+    return {
+      status: HttpStatus.ACCEPTED,
+      body: { id: notification.id },
+      replayed: false,
+    };
   }
 
   async get(client: ApiClient, id: number): Promise<NotificationResponse> {
