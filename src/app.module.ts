@@ -5,6 +5,8 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { EnvironmentVariables, validate } from './config/env.validation';
 import { buildDataSourceOptions } from './database/database.options';
+import { HealthModule } from './health/health.module';
+import { RedisModule } from './redis/redis.module';
 
 @Module({
   imports: [
@@ -26,6 +28,8 @@ import { buildDataSourceOptions } from './database/database.options';
         autoLoadEntities: true,
       }),
     }),
+    RedisModule,
+    HealthModule,
   ],
   controllers: [AppController],
   providers: [AppService],
