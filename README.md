@@ -36,7 +36,7 @@ MySQL은 로컬에 설치된 MySQL과 충돌하지 않도록 호스트 포트 33
 
 ## 에러 응답
 
-모든 에러는 [RFC 9457 Problem Details](https://www.rfc-editor.org/rfc/rfc9457) 형식(`application/problem+json`)으로 응답합니다. 클라이언트는 `title`이나 `detail`이 아니라 `type`으로 오류를 구분합니다.
+헬스체크를 제외한 모든 에러는 [RFC 9457 Problem Details](https://www.rfc-editor.org/rfc/rfc9457) 형식(`application/problem+json`)으로 응답합니다. 클라이언트는 `title`이나 `detail`이 아니라 `type`으로 오류를 구분합니다.
 
 ```json
 {
@@ -63,6 +63,29 @@ MySQL은 로컬에 설치된 MySQL과 충돌하지 않도록 호스트 포트 33
 
 `instance`에는 쿼리 문자열을 제외한 요청 경로가 들어갑니다. 한 번 공개한 `type` URI의 의미는 바꾸지 않습니다.
 
+## 헬스체크
+
+| 경로                | 확인 대상                      | 응답                                     |
+| ------------------- | ------------------------------ | ---------------------------------------- |
+| `GET /health/live`  | 없음 (프로세스가 응답하는지만) | 항상 200                                 |
+| `GET /health/ready` | MySQL, Redis (각 1초 제한)     | 모두 정상이면 200, 하나라도 실패하면 503 |
+
+liveness는 의존성을 확인하지 않습니다. DB 장애로 liveness가 실패하면 오케스트레이터가 모든 인스턴스를 재시작하지만, 재시작으로는 DB 장애가 해결되지 않습니다. 의존성 장애는 readiness 실패로 처리해 트래픽만 받지 않게 합니다. `docker compose --profile app`의 `app` 컨테이너 healthcheck도 readiness를 사용합니다.
+
+헬스체크의 503 응답은 RFC 9457 형식의 예외로, 어떤 의존성이 실패했는지 보여주는 Terminus 형식을 그대로 사용합니다.
+
+```json
+{
+  "status": "error",
+  "info": { "database": { "status": "up" } },
+  "error": { "redis": { "status": "down", "message": "..." } },
+  "details": {
+    "database": { "status": "up" },
+    "redis": { "status": "down", "message": "..." }
+  }
+}
+```
+
 ## 데이터베이스 마이그레이션
 
 스키마는 마이그레이션으로만 변경합니다. `synchronize`는 꺼져 있고, 앱은 기동할 때 마이그레이션을 실행하지 않습니다. 여러 인스턴스가 동시에 같은 마이그레이션을 실행하지 않도록 배포 단계에서 따로 실행합니다.
@@ -86,6 +109,6 @@ npm run lint
 npm run typecheck
 ```
 
-E2E 테스트는 Testcontainers로 MySQL 컨테이너를 띄워 실행합니다. 테스트 파일은 순차 실행(`--runInBand`)되고, 데이터를 쓰는 테스트는 `beforeEach`에서 `resetDatabase()`로 마이그레이션 기록을 제외한 모든 테이블을 비웁니다. 마이그레이션 테스트는 별도 데이터베이스를 사용합니다.
+E2E 테스트는 Testcontainers로 MySQL과 Redis 컨테이너를 띄워 실행합니다. 테스트 파일은 순차 실행(`--runInBand`)되고, 데이터를 쓰는 테스트는 `beforeEach`에서 `resetDatabase()`로 마이그레이션 기록을 제외한 모든 테이블을 비웁니다. 마이그레이션 테스트는 별도 데이터베이스를 사용합니다.
 
 마이그레이션 테스트는 모든 마이그레이션을 실행한 뒤 엔티티와 DB 스키마의 차이가 없는지 확인합니다. 엔티티만 수정하고 마이그레이션을 만들지 않으면 CI가 실패합니다.
