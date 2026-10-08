@@ -127,6 +127,17 @@ npm run client:create -- my-service   # API 키 발급 (한 번만 표시)
 - `WORKERS_ENABLED=false`면 API만 띄웁니다.
 - 재시도 횟수·백오프·DLQ·수신거부 검사는 Phase 3에서 추가합니다.
 
+## 사용자 API
+
+웹 푸시를 받을 브라우저는 `POST /devices`로 FCM 토큰을 등록합니다. 사용자는 `Authorization: Bearer <JWT>`(HS256, `sub` = 사용자 id)로 인증합니다. 실제 서비스에서는 별도 인증 서비스가 토큰을 발급한다고 가정하고, 로컬에서는 CLI로 발급합니다.
+
+```bash
+npm run user:token -- me@example.com   # 사용자를 찾거나 만들고 1시간짜리 토큰 출력
+```
+
+- 같은 토큰을 다시 등록하면 200으로 갱신(upsert)하고, 비활성화된 토큰은 다시 활성화합니다.
+- 서명 알고리즘은 HS256으로 고정하고 `exp`가 없는 토큰은 거부합니다(`alg: none`, 만료, 다른 키 서명 등 E2E로 확인).
+
 ## 템플릿 API
 
 관리용 템플릿 CRUD는 `/admin/templates`에 있습니다. 관리자 인증은 Phase 6에서 추가합니다.

@@ -11,6 +11,7 @@ describe('validate (environment variables)', () => {
     DB_PASSWORD: 'secret',
     REDIS_HOST: 'localhost',
     REDIS_PORT: '6379',
+    JWT_SECRET: 'x'.repeat(32),
   };
 
   it('converts numeric strings to numbers', () => {
@@ -69,6 +70,12 @@ describe('validate (environment variables)', () => {
       );
     });
   });
+  it('rejects a JWT secret shorter than 32 characters', () => {
+    expect(() => validate({ ...valid, JWT_SECRET: 'short' })).toThrow(
+      /JWT_SECRET/,
+    );
+  });
+
   describe('workers and providers', () => {
     it('runs workers with fake providers by default', () => {
       const config = validate(valid);

@@ -51,6 +51,7 @@ export default async function globalSetup(): Promise<void> {
     REDIS_PORT: String(redis.getPort()),
     // Explicit so a developer's .env cannot change test behavior.
     SWAGGER_ENABLED: 'false',
+    JWT_SECRET: 'test-jwt-secret-that-is-at-least-32-chars',
     // Suites that need workers turn them on through createTestApp({ env }).
     WORKERS_ENABLED: 'false',
     EMAIL_PROVIDER: 'fake',

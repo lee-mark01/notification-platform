@@ -8,6 +8,7 @@ import {
   IsString,
   Max,
   Min,
+  MinLength,
   ValidateIf,
   validateSync,
 } from 'class-validator';
@@ -73,6 +74,12 @@ export class EnvironmentVariables {
   )
   @IsBoolean()
   SWAGGER_ENABLED: boolean = false;
+
+  // HS256 key for user JWTs (sub = user id). 32+ characters so it is not
+  // guessable offline from a captured token.
+  @IsString()
+  @MinLength(32)
+  JWT_SECRET: string;
 
   // Lets an instance serve only the API. Tests that check the QUEUED state
   // turn workers off so a job is not picked up mid-assertion.
