@@ -1,0 +1,36 @@
+name: 작업
+description: 기능 구현, 설정, 리팩터링 등 계획된 작업
+body:
+  - type: textarea
+    id: purpose
+    attributes:
+      label: 목적
+      description: 이 작업으로 무엇을 가능하게 하는지
+    validations:
+      required: true
+  - type: textarea
+    id: tasks
+    attributes:
+      label: 작업 내용
+      description: 체크박스 목록으로 작성
+      value: |
+        - [ ]
+    validations:
+      required: true
+  - type: textarea
+    id: done
+    attributes:
+      label: 완료 조건
+      description: 무엇을 확인하면 끝난 것인지
+    validations:
+      required: true
+  - type: textarea
+    id: tests
+    attributes:
+      label: 테스트
+      description: 단위·E2E·수동 확인 계획
+  - type: textarea
+    id: notes
+    attributes:
+      label: 참고
+      description: 범위 밖 항목, 관련 이슈, 참고 자료
