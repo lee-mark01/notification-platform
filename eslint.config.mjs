@@ -6,7 +6,8 @@ import tseslint from 'typescript-eslint';
 
 export default defineConfig(
   {
-    ignores: ['dist/', 'coverage/', 'eslint.config.mjs'],
+    // scripts/capture holds local, untracked screenshot tooling.
+    ignores: ['dist/', 'coverage/', 'eslint.config.mjs', 'scripts/capture/'],
   },
   eslint.configs.recommended,
   tseslint.configs.recommendedTypeChecked,
