@@ -59,6 +59,8 @@ erDiagram
         json variables
         varchar rendered_title
         mediumtext rendered_body
+        mediumtext rendered_text
+        json rendered_data
         int attempt_count
         datetime lease_until
         varchar provider_message_id UK
@@ -167,6 +169,8 @@ erDiagram
 
 수신자 1명·채널 1개당 1행. 이 프로젝트에서 행이 가장 많이 쌓이는 테이블이다.
 
+내용은 **접수 시점에 렌더링해 저장**한다. Worker는 저장된 내용을 그대로 보내므로, 접수 뒤 템플릿이 수정·삭제돼도 발송 내용과 알림함 표시가 바뀌지 않는다.
+
 | 컬럼                             | 타입                    | 설명                                                                                                                                              |
 | -------------------------------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
 | id                               | BIGINT UNSIGNED PK      | BullMQ `jobId`로도 쓴다                                                                                                                           |
@@ -180,8 +184,10 @@ erDiagram
 | status                           | VARCHAR(20)             | [상태 머신](state-machine.md) 참고                                                                                                                |
 | recipient_email                  | VARCHAR(320) NULL       | 이메일 채널의 수신 주소 (접수 시점 값)                                                                                                            |
 | variables                        | JSON                    | 렌더링 변수                                                                                                                                       |
-| rendered_title                   | VARCHAR(255) NULL       | 렌더링된 제목 (이메일 subject / 푸시 title)                                                                                                       |
-| rendered_body                    | MEDIUMTEXT NULL         | 렌더링된 본문. 템플릿이 나중에 바뀌어도 실제 발송 내용을 남긴다                                                                                   |
+| rendered_title                   | VARCHAR(255)            | 렌더링된 제목 (이메일 subject / 푸시 title)                                                                                                       |
+| rendered_body                    | MEDIUMTEXT              | 렌더링된 본문 (이메일 HTML / 푸시 body)                                                                                                           |
+| rendered_text                    | MEDIUMTEXT NULL         | 이메일 텍스트 대체 본문                                                                                                                           |
+| rendered_data                    | JSON NULL               | 푸시 data                                                                                                                                         |
 | attempt_count                    | INT                     | 발송 시도 횟수                                                                                                                                    |
 | lease_until                      | DATETIME(3) NULL        | SENDING 점유 만료 시각. Worker가 발송 중 죽으면 이 시각이 지난 뒤에만 다른 Worker가 다시 가져간다 ([상태 머신](state-machine.md#발송-점유-lease)) |
 | provider_message_id              | VARCHAR(255) NULL       | SES MessageId / FCM message name. 웹훅으로 알림을 찾는 키                                                                                         |
