@@ -31,6 +31,7 @@
     "client:create": "ts-node src/cli/create-api-client.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-sesv2": "^3.1139.0",
     "@nestjs/bullmq": "^12.0.0",
     "@nestjs/common": "^12.0.1",
     "@nestjs/config": "^12.0.1",
