@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: check
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      # Dummy values that satisfy startup validation. Tests that need a real
+      # database or Redis start their own containers.
+      NODE_ENV: test
+      DB_HOST: localhost
+      DB_PORT: 3306
+      DB_DATABASE: notification
+      DB_USERNAME: app
+      DB_PASSWORD: ci_password
+      REDIS_HOST: localhost
+      REDIS_PORT: 6379
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run format:check
+      - run: npm test
+      - run: npm run test:e2e
+      - run: npm run build
