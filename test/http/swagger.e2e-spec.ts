@@ -24,6 +24,7 @@ describe('Swagger (e2e)', () => {
           '/admin/templates/{id}',
         ]),
       );
+      expect(doc.paths).not.toHaveProperty('/');
     } finally {
       await app.close();
     }
