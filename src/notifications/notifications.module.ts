@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ClientsModule } from '../clients/clients.module';
 import { IdempotencyModule } from '../common/idempotency/idempotency.module';
+import { DispatchModule } from '../dispatch/dispatch.module';
 import { TemplatesModule } from '../templates/templates.module';
 import { UsersModule } from '../users/users.module';
 import { DeliveryAttempt } from './delivery-attempt.entity';
@@ -16,6 +17,7 @@ import { NotificationsService } from './notifications.service';
     UsersModule,
     TemplatesModule,
     IdempotencyModule,
+    DispatchModule,
   ],
   controllers: [NotificationsController],
   providers: [NotificationsService],
