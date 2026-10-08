@@ -89,11 +89,16 @@ export class NotificationsService {
       const notification = await this.dataSource.transaction(
         async (manager) => {
           const saved = await manager.save(Notification, prepared);
-          await this.idempotency.complete(manager, begun.recordId, {
-            status: HttpStatus.ACCEPTED,
-            body: { id: saved.id },
-            notificationId: saved.id,
-          });
+          await this.idempotency.complete(
+            manager,
+            begun.recordId,
+            begun.lockToken,
+            {
+              status: HttpStatus.ACCEPTED,
+              body: { id: saved.id },
+              notificationId: saved.id,
+            },
+          );
           return saved;
         },
       );
@@ -103,7 +108,8 @@ export class NotificationsService {
         replayed: false,
       };
     } catch (error) {
-      await this.idempotency.abandon(begun.recordId);
+      // Fenced: a no-op if another request has since taken over the key.
+      await this.idempotency.abandon(begun.recordId, begun.lockToken);
       throw error;
     }
   }

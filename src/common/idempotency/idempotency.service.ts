@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, LessThanOrEqual, Repository } from 'typeorm';
 import type { QueryDeepPartialEntity } from 'typeorm/query-builder/QueryPartialEntity';
@@ -14,9 +15,11 @@ export const LOCK_MS = 30_000;
 // How long a key is remembered.
 export const RETENTION_MS = 24 * 60 * 60 * 1000;
 const MAX_TRIES = 3;
+const LOST_OWNERSHIP =
+  'This request lost its Idempotency-Key lock to a retry. Retry later to get its response.';
 
 export type BeginResult =
-  | { kind: 'acquired'; recordId: number }
+  | { kind: 'acquired'; recordId: number; lockToken: string }
   | { kind: 'replay'; status: number; body: Record<string, unknown> };
 
 /**
@@ -47,13 +50,17 @@ export class IdempotencyService {
   ): Promise<BeginResult> {
     for (let attempt = 0; attempt < MAX_TRIES; attempt += 1) {
       const now = new Date();
+      const lockToken = randomUUID();
       const inserted = await this.tryInsert(
         clientId,
         idemKey,
         requestHash,
+        lockToken,
         now,
       );
-      if (inserted !== null) return { kind: 'acquired', recordId: inserted };
+      if (inserted !== null) {
+        return { kind: 'acquired', recordId: inserted, lockToken };
+      }
 
       const existing = await this.keys.findOneBy({ clientId, idemKey });
       // Deleted by abandon() between our insert and read: try again.
@@ -81,10 +88,13 @@ export class IdempotencyService {
           const won = await this.reclaim(
             existing.id,
             requestHash,
+            lockToken,
             now,
             decision.kind,
           );
-          if (won) return { kind: 'acquired', recordId: existing.id };
+          if (won) {
+            return { kind: 'acquired', recordId: existing.id, lockToken };
+          }
           continue;
         }
       }
@@ -92,19 +102,26 @@ export class IdempotencyService {
     throw this.inProgress(1);
   }
 
-  /** Stores the response; call inside the transaction that creates the resource. */
+  /**
+   * Stores the response; call inside the transaction that creates the
+   * resource. The update is fenced by the lock token: if the lock expired and
+   * another request took the key over, this holder no longer owns it, the
+   * update matches no row, and the error rolls back the caller's transaction
+   * so the resource is not created twice.
+   */
   async complete(
     manager: EntityManager,
     recordId: number,
+    lockToken: string,
     response: {
       status: number;
       body: Record<string, unknown>;
       notificationId: number;
     },
   ): Promise<void> {
-    await manager.update(
+    const result = await manager.update(
       IdempotencyKey,
-      { id: recordId, status: IdempotencyStatus.InProgress },
+      { id: recordId, status: IdempotencyStatus.InProgress, lockToken },
       {
         status: IdempotencyStatus.Completed,
         responseStatus: response.status,
@@ -115,20 +132,35 @@ export class IdempotencyService {
         notificationId: response.notificationId,
       },
     );
+    if (result.affected !== 1) throw this.lostOwnership();
   }
 
-  /** Releases a key whose request failed before completing. */
-  async abandon(recordId: number): Promise<void> {
+  /**
+   * Releases a key whose request failed before completing. Fenced like
+   * complete(): a holder that lost the key must not delete the new holder's.
+   */
+  async abandon(recordId: number, lockToken: string): Promise<void> {
     await this.keys.delete({
       id: recordId,
       status: IdempotencyStatus.InProgress,
+      lockToken,
     });
+  }
+
+  /** True when the error means this request lost its key to a takeover. */
+  static isLostOwnership(error: unknown): boolean {
+    return (
+      error instanceof ProblemException &&
+      error.problem === ProblemTypes.IDEMPOTENCY_KEY_IN_PROGRESS &&
+      error.detail === LOST_OWNERSHIP
+    );
   }
 
   private async tryInsert(
     clientId: number,
     idemKey: string,
     requestHash: string,
+    lockToken: string,
     now: Date,
   ): Promise<number | null> {
     try {
@@ -137,6 +169,7 @@ export class IdempotencyService {
         idemKey,
         requestHash,
         status: IdempotencyStatus.InProgress,
+        lockToken,
         lockedUntil: new Date(now.getTime() + LOCK_MS),
         expiresAt: new Date(now.getTime() + RETENTION_MS),
       });
@@ -150,6 +183,7 @@ export class IdempotencyService {
   private async reclaim(
     id: number,
     requestHash: string,
+    lockToken: string,
     now: Date,
     reason: 'take-over' | 'expired',
   ): Promise<boolean> {
@@ -164,6 +198,7 @@ export class IdempotencyService {
     const result = await this.keys.update(condition, {
       requestHash,
       status: IdempotencyStatus.InProgress,
+      lockToken,
       lockedUntil: new Date(now.getTime() + LOCK_MS),
       expiresAt: new Date(now.getTime() + RETENTION_MS),
       responseStatus: null,
@@ -171,6 +206,17 @@ export class IdempotencyService {
       notificationId: null,
     });
     return result.affected === 1;
+  }
+
+  // The other holder will finish; telling this client to retry later lets it
+  // receive that holder's stored response.
+  private lostOwnership(): ProblemException {
+    return new ProblemException(
+      ProblemTypes.IDEMPOTENCY_KEY_IN_PROGRESS,
+      LOST_OWNERSHIP,
+      {},
+      { 'Retry-After': '1' },
+    );
   }
 
   private inProgress(retryAfterSeconds: number): ProblemException {

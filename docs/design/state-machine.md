@@ -131,6 +131,8 @@ stateDiagram-v2
 | IN_PROGRESS, 잠금 유효 | 같음      | 409 `idempotency-key-in-progress`      |
 | IN_PROGRESS, 잠금 만료 | 같음      | 조건부 UPDATE로 이어받아 처리          |
 
+잠금이 만료돼 다른 요청이 이어받은 뒤, 처음 요청이 사실은 살아 있다가 완료를 시도할 수 있다. 그래서 키를 잡을 때마다 새 `lock_token`(펜싱 토큰)을 발급하고, 완료(`COMPLETED` 기록)는 `WHERE id = ? AND status = 'IN_PROGRESS' AND lock_token = ?`로만 한다. 토큰이 다르면 영향 행이 0이고, 이 오류가 같은 트랜잭션의 알림 INSERT까지 롤백한다. 키 삭제(`abandon`)도 같은 조건이다.
+
 ## 장애 시나리오 매핑
 
 | #   | 시나리오                      | 처리하는 전이·규칙                                                    | 쓰는 데이터                                                         | 검증                                              |

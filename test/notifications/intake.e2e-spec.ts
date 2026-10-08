@@ -8,7 +8,14 @@ import {
   IdempotencyStatus,
 } from '../../src/common/idempotency/idempotency-key.entity';
 import { requestHash } from '../../src/common/idempotency/request-hash';
+import { IdempotencyService } from '../../src/common/idempotency/idempotency.service';
+import { hashApiKey } from '../../src/clients/api-key';
 import { Notification } from '../../src/notifications/notification.entity';
+import {
+  NotificationCategory,
+  NotificationStatus,
+} from '../../src/notifications/notification.enums';
+import { TemplateChannel } from '../../src/templates/template.entity';
 import { ApiClient } from '../../src/clients/api-client.entity';
 import { AppUser } from '../../src/users/app-user.entity';
 import { createTestApp } from '../support/app';
@@ -133,6 +140,17 @@ describe('Notification intake (e2e)', () => {
   });
 
   describe('authentication', () => {
+    it('stores only the SHA-256 of the API key', async () => {
+      const rows = await dataSource.query<{ api_key_hash: string }[]>(
+        'SELECT api_key_hash FROM api_client WHERE id = ?',
+        [client.id],
+      );
+
+      expect(rows[0].api_key_hash).toBe(hashApiKey(apiKey));
+      expect(rows[0].api_key_hash).toMatch(/^[0-9a-f]{64}$/);
+      expect(rows[0].api_key_hash).not.toContain(apiKey.slice(3, 20));
+    });
+
     it.each([
       ['missing', undefined],
       ['unknown', 'np_not-a-real-key'],
@@ -237,6 +255,66 @@ describe('Notification intake (e2e)', () => {
       expect(await notificationCount()).toBe(1);
     });
 
+    // A request whose lock expired while it was still running must not be able
+    // to complete after a retry took the key over: that would create a second
+    // notification. complete() is fenced by the lock token.
+    it('rolls back a holder that lost its key to a takeover', async () => {
+      const idempotency = app.get(IdempotencyService);
+      const key = randomUUID();
+      const hash = requestHash(emailRequest());
+
+      const first = await idempotency.begin(client.id, key, hash);
+      if (first.kind !== 'acquired') throw new Error('expected acquired');
+      await dataSource
+        .getRepository(IdempotencyKey)
+        .update(
+          { id: first.recordId },
+          { lockedUntil: new Date(Date.now() - 1) },
+        );
+      const second = await idempotency.begin(client.id, key, hash);
+      if (second.kind !== 'acquired') throw new Error('expected takeover');
+      expect(second.recordId).toBe(first.recordId);
+      expect(second.lockToken).not.toBe(first.lockToken);
+
+      const completeAs = (lockToken: string, code: string) =>
+        dataSource.transaction(async (manager) => {
+          const saved = await manager.save(Notification, {
+            clientId: client.id,
+            templateId: (
+              await dataSource.query<{ id: number }[]>(
+                'SELECT id FROM template LIMIT 1',
+              )
+            )[0].id,
+            templateVersion: 1,
+            channel: TemplateChannel.Email,
+            category: NotificationCategory.Transactional,
+            status: NotificationStatus.Pending,
+            recipientEmail: 'a@example.com',
+            variables: { code },
+            renderedTitle: code,
+            renderedBody: code,
+          });
+          await idempotency.complete(manager, first.recordId, lockToken, {
+            status: 202,
+            body: { id: saved.id },
+            notificationId: saved.id,
+          });
+        });
+
+      // The original holder wakes up and tries to finish: rejected, rolled back.
+      await expect(completeAs(first.lockToken, 'stale')).rejects.toThrow();
+      expect(await notificationCount()).toBe(0);
+      // abandon() by the stale holder must not delete the new holder's key.
+      await idempotency.abandon(first.recordId, first.lockToken);
+
+      await completeAs(second.lockToken, 'current');
+      expect(await notificationCount()).toBe(1);
+      const stored = await dataSource
+        .getRepository(IdempotencyKey)
+        .findOneByOrFail({ id: first.recordId });
+      expect(stored.status).toBe(IdempotencyStatus.Completed);
+    });
+
     // Simulates another request of this client holding the key.
     async function holdKey(
       key: string,
@@ -247,6 +325,7 @@ describe('Notification intake (e2e)', () => {
         idemKey: key,
         requestHash: requestHash(emailRequest()),
         status: IdempotencyStatus.InProgress,
+        lockToken: randomUUID(),
         lockedUntil: new Date(Date.now() + lockedForMs),
         expiresAt: new Date(Date.now() + 86_400_000),
       });

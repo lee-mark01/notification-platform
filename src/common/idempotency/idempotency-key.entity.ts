@@ -46,6 +46,11 @@ export class IdempotencyKey {
   @Column({ type: 'varchar', length: 20 })
   status: IdempotencyStatus;
 
+  // Fencing token: a new random value each time a request acquires the key.
+  // Only the current holder can complete or abandon it.
+  @Column({ name: 'lock_token', type: 'char', length: 36 })
+  lockToken: string;
+
   @Column({ name: 'locked_until', ...datetime3 })
   lockedUntil: Date;
 

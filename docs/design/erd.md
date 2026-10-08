@@ -115,6 +115,7 @@ erDiagram
         varchar idem_key
         char request_hash
         varchar status
+        char lock_token
         datetime locked_until
         smallint response_status
         json response_body
@@ -276,19 +277,20 @@ FCM 등록 토큰. 사용자 1명이 브라우저·기기 여러 개를 가질 �
 
 요청 단위 멱등성. 처리 흐름은 [상태 머신](state-machine.md#멱등-키)과 ADR-002.
 
-| 컬럼                   | 타입                 | 설명                                                        |
-| ---------------------- | -------------------- | ----------------------------------------------------------- |
-| id                     | BIGINT UNSIGNED PK   |                                                             |
-| client_id              | INT UNSIGNED FK      | 키의 범위                                                   |
-| idem_key               | VARCHAR(255)         | `Idempotency-Key` 헤더 값                                   |
-| request_hash           | CHAR(64)             | 정규화한 요청 본문의 SHA-256                                |
-| status                 | VARCHAR(20)          | `IN_PROGRESS` / `COMPLETED`                                 |
-| locked_until           | DATETIME(3)          | 처리 중 잠금 만료 시각. 지나면 다른 요청이 이어받을 수 있다 |
-| response_status        | SMALLINT NULL        | 저장한 응답 상태 코드                                       |
-| response_body          | JSON NULL            | 저장한 응답 본문                                            |
-| notification_id        | BIGINT UNSIGNED NULL | 만들어진 알림                                               |
-| expires_at             | DATETIME(3)          | 키 보관 만료 (24시간)                                       |
-| created_at, updated_at | DATETIME(3)          |                                                             |
+| 컬럼                   | 타입                 | 설명                                                                                   |
+| ---------------------- | -------------------- | -------------------------------------------------------------------------------------- |
+| id                     | BIGINT UNSIGNED PK   |                                                                                        |
+| client_id              | INT UNSIGNED FK      | 키의 범위                                                                              |
+| idem_key               | VARCHAR(255)         | `Idempotency-Key` 헤더 값                                                              |
+| request_hash           | CHAR(64)             | 정규화한 요청 본문의 SHA-256                                                           |
+| status                 | VARCHAR(20)          | `IN_PROGRESS` / `COMPLETED`                                                            |
+| lock_token             | CHAR(36)             | 펜싱 토큰. 키를 잡을 때마다 새 UUID. `complete`·`abandon`은 이 값이 같을 때만 반영된다 |
+| locked_until           | DATETIME(3)          | 처리 중 잠금 만료 시각. 지나면 다른 요청이 이어받을 수 있다                            |
+| response_status        | SMALLINT NULL        | 저장한 응답 상태 코드                                                                  |
+| response_body          | JSON NULL            | 저장한 응답 본문                                                                       |
+| notification_id        | BIGINT UNSIGNED NULL | 만들어진 알림                                                                          |
+| expires_at             | DATETIME(3)          | 키 보관 만료 (24시간)                                                                  |
+| created_at, updated_at | DATETIME(3)          |                                                                                        |
 
 - `uq_idempotency_key_client_key (client_id, idem_key)`: 동시에 같은 키가 와도 한 행만 생긴다 (장애 시나리오 1).
 - `ix_idempotency_key_expires_at (expires_at)`: 만료 키 정리.

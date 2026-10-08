@@ -1,7 +1,7 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class CreateNotificationIntake1791466782390 implements MigrationInterface {
-  name = 'CreateNotificationIntake1791466782390';
+export class CreateNotificationIntake1791468079165 implements MigrationInterface {
+  name = 'CreateNotificationIntake1791468079165';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(
@@ -17,7 +17,7 @@ export class CreateNotificationIntake1791466782390 implements MigrationInterface
       `CREATE TABLE \`delivery_attempt\` (\`id\` bigint UNSIGNED NOT NULL AUTO_INCREMENT, \`notification_id\` bigint UNSIGNED NOT NULL, \`attempt_no\` int NOT NULL, \`provider\` varchar(20) NOT NULL, \`outcome\` varchar(20) NOT NULL, \`error_code\` varchar(64) NULL, \`error_message\` varchar(500) NULL, \`duration_ms\` int NOT NULL, \`started_at\` datetime(3) NOT NULL, UNIQUE INDEX \`uq_delivery_attempt_notification_attempt\` (\`notification_id\`, \`attempt_no\`), PRIMARY KEY (\`id\`)) ENGINE=InnoDB`,
     );
     await queryRunner.query(
-      `CREATE TABLE \`idempotency_key\` (\`id\` bigint UNSIGNED NOT NULL AUTO_INCREMENT, \`client_id\` int UNSIGNED NOT NULL, \`idem_key\` varchar(255) NOT NULL, \`request_hash\` char(64) NOT NULL, \`status\` varchar(20) NOT NULL, \`locked_until\` datetime(3) NOT NULL, \`response_status\` smallint UNSIGNED NULL, \`response_body\` json NULL, \`notification_id\` bigint UNSIGNED NULL, \`expires_at\` datetime(3) NOT NULL, \`created_at\` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3), \`updated_at\` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3), INDEX \`ix_idempotency_key_expires_at\` (\`expires_at\`), UNIQUE INDEX \`uq_idempotency_key_client_key\` (\`client_id\`, \`idem_key\`), PRIMARY KEY (\`id\`)) ENGINE=InnoDB`,
+      `CREATE TABLE \`idempotency_key\` (\`id\` bigint UNSIGNED NOT NULL AUTO_INCREMENT, \`client_id\` int UNSIGNED NOT NULL, \`idem_key\` varchar(255) NOT NULL, \`request_hash\` char(64) NOT NULL, \`status\` varchar(20) NOT NULL, \`lock_token\` char(36) NOT NULL, \`locked_until\` datetime(3) NOT NULL, \`response_status\` smallint UNSIGNED NULL, \`response_body\` json NULL, \`notification_id\` bigint UNSIGNED NULL, \`expires_at\` datetime(3) NOT NULL, \`created_at\` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3), \`updated_at\` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3), INDEX \`ix_idempotency_key_expires_at\` (\`expires_at\`), UNIQUE INDEX \`uq_idempotency_key_client_key\` (\`client_id\`, \`idem_key\`), PRIMARY KEY (\`id\`)) ENGINE=InnoDB`,
     );
     await queryRunner.query(
       `ALTER TABLE \`notification\` ADD CONSTRAINT \`fk_notification_client\` FOREIGN KEY (\`client_id\`) REFERENCES \`api_client\`(\`id\`) ON DELETE RESTRICT ON UPDATE NO ACTION`,
