@@ -34,6 +34,10 @@ export class TemplatesRepository {
     return this.repo.findOneBy({ id });
   }
 
+  findActiveByKey(key: string): Promise<Template | null> {
+    return this.repo.findOneBy({ key });
+  }
+
   // Fetches one extra row to tell whether another page exists.
   findPage(options: {
     channel?: TemplateChannel;
