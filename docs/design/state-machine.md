@@ -80,13 +80,16 @@ stateDiagram-v2
 
 ### 큐 등록 (T1)
 
-- 접수 트랜잭션이 커밋된 **뒤**, 트랜잭션 밖에서 `queue.add(jobId = notification.id)` 후 T1을 실행한다.
+- 접수 트랜잭션이 커밋된 **뒤**, 트랜잭션 밖에서 `queue.add(jobId = notification-{id})`(BullMQ는 숫자만으로 된 custom id를 받지 않는다) 후 T1을 실행한다.
 - 큐 등록이 실패하면(Redis 장애) 알림은 PENDING으로 남는다. Sweeper가 일정 시간(예: 1분) 이상 PENDING인 알림을 다시 등록한다.
 - 큐 등록은 성공했는데 T1이 실패하면(DB 순간 장애) 알림은 PENDING인 채 job이 실행된다. 그래서 Worker의 점유 조건(T2)에 PENDING을 포함한다. 이 경우 Sweeper가 같은 `jobId`로 다시 등록해도 BullMQ가 중복 job을 만들지 않는다.
 
 ### 발송 점유 (lease)
 
-- Worker는 T2로 점유할 때 `lease_until`을 "지금 + Provider 호출 제한 시간 + 여유"(예: 60초)로 정한다.
+- Worker는 T2로 점유할 때 `lease_until`을 "지금 + Provider 호출 제한 시간 + 여유"(예: 60초)로 정한다. 시각은 DB 시계(`UTC_TIMESTAMP(3)`)로 계산해 Worker 인스턴스 간 시계 차이의 영향을 받지 않게 한다.
+- 결과 기록의 조건은 성공과 실패가 다르다.
+  - T3(SENT)는 `status = SENDING`만 본다. lease를 잃은 Worker라도 발송이 실제로 성공했다면 "보냈다"는 기록이 사실이기 때문이다.
+  - T4·T6(RETRYING·FAILED)은 `attempt_count = 내 시도 번호`까지 본다(펜싱). lease를 잃은 옛 Worker의 실패가, 재점유한 새 Worker의 발송을 실패로 덮어쓰지 않게 한다.
 - Worker가 발송 중 죽으면(`kill -9`) BullMQ가 stalled job으로 감지해 다시 실행한다. 그때 알림은 SENDING이므로 T2'로만 다시 점유할 수 있고, lease가 남아 있으면 영향 행 0이다.
   - 이때 Worker는 job을 성공으로 끝내지 않고 **일시 오류로 실패**시켜, BullMQ 백오프 후 다시 시도하게 한다. lease가 지나면 T2'가 성공한다.
 - 죽은 Worker가 실제로 Provider 호출까지 끝냈다면, 재점유 후 같은 알림이 한 번 더 발송된다. SES·FCM에는 멱등 키가 없어 이 중복은 막을 수 없다(at-least-once, ADR-002). 장애 시나리오 6에서 이 중복 횟수를 측정해 기록한다.
