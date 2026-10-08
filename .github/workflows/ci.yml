@@ -44,3 +44,22 @@ jobs:
       - run: npm test
       - run: npm run test:e2e
       - run: npm run build
+
+  gitleaks:
+    name: gitleaks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      # The action reads the PR's commit list through the API.
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: gitleaks/gitleaks-action@v3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Comments would need write access; a failing check is enough.
+          GITLEAKS_ENABLE_COMMENTS: false
