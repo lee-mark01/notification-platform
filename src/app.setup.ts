@@ -1,5 +1,5 @@
-import type { INestApplication } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { ProblemDetailsFilter } from './common/problem/problem-details.filter';
 import {
@@ -11,7 +11,13 @@ import type { EnvironmentVariables } from './config/env.validation';
 
 // Global wiring shared by main.ts and E2E tests. Tests build the app without
 // main.ts, so anything registered only there would be missing under test.
-export function configureApp(app: INestApplication): void {
+export function configureApp(app: NestExpressApplication): void {
+  // Do not advertise the server framework in every response.
+  app.disable('x-powered-by');
+  // ETags mean one thing here: the version for If-Match on templates. Express
+  // would otherwise add weak body-hash ETags to every GET response.
+  app.set('etag', false);
+
   app.useGlobalPipes(createValidationPipe());
   app.useGlobalFilters(new ProblemDetailsFilter());
 
@@ -21,7 +27,7 @@ export function configureApp(app: INestApplication): void {
   }
 }
 
-function setupSwagger(app: INestApplication): void {
+function setupSwagger(app: NestExpressApplication): void {
   const document = SwaggerModule.createDocument(
     app,
     new DocumentBuilder()
