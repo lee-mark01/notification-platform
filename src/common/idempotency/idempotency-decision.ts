@@ -6,7 +6,7 @@ export type IdempotencyDecision =
   /** Same key, different request: refuse (422). */
   | { kind: 'reused' }
   /** Same request already completed: return the stored response. */
-  | { kind: 'replay'; status: number; body: unknown }
+  | { kind: 'replay'; status: number; body: Record<string, unknown> | null }
   /** Same request still running elsewhere: ask the client to retry (409). */
   | { kind: 'in-progress'; retryAfterSeconds: number }
   /** Same request, but its holder's lock expired (it likely crashed): take over. */

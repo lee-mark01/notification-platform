@@ -58,7 +58,7 @@ export class IdempotencyKey {
   responseStatus: number | null;
 
   @Column({ name: 'response_body', type: 'json', nullable: true })
-  responseBody: unknown;
+  responseBody: Record<string, unknown> | null;
 
   @Column({
     name: 'notification_id',
