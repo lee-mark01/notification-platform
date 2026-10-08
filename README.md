@@ -58,10 +58,31 @@ MySQL은 로컬에 설치된 MySQL과 충돌하지 않도록 호스트 포트 33
 | `/problems/idempotency-key-missing`     | 400              | `Idempotency-Key` 헤더 누락                                               |
 | `/problems/idempotency-key-in-progress` | 409              | 같은 키의 요청이 아직 처리 중                                             |
 | `/problems/idempotency-key-reused`      | 422              | 같은 키가 다른 요청 본문으로 재사용됨                                     |
+| `/problems/template-key-conflict`       | 409              | 이미 사용 중인 템플릿 key (삭제된 템플릿 포함)                            |
+| `/problems/precondition-failed`         | 412              | `If-Match`가 현재 `ETag`와 다름 (그사이 수정됨)                           |
+| `/problems/precondition-required`       | 428              | `If-Match` 헤더가 필요한 요청에 없음                                      |
 | `/problems/internal-error`              | 500              | 서버 내부 오류. 상세 내용은 응답하지 않고 로그에만 남김                   |
 | `about:blank`                           | 상태 코드 그대로 | HTTP 상태 외에 추가 의미가 없는 오류 (예: 없는 경로 404, 잘못된 JSON 400) |
 
 `instance`에는 쿼리 문자열을 제외한 요청 경로가 들어갑니다. 한 번 공개한 `type` URI의 의미는 바꾸지 않습니다.
+
+## 템플릿 API
+
+관리용 템플릿 CRUD는 `/admin/templates`에 있습니다. 관리자 인증은 Phase 6에서 추가합니다.
+
+| 메서드·경로                                     | 성공                        | 주요 실패                        |
+| ----------------------------------------------- | --------------------------- | -------------------------------- |
+| `POST /admin/templates`                         | 201 + `Location`, `ETag`    | 400, 409 `template-key-conflict` |
+| `GET /admin/templates?channel=&limit=&cursor=`  | 200 `{ items, nextCursor }` | 400                              |
+| `GET /admin/templates/{id}`                     | 200 + `ETag`                | 404                              |
+| `PATCH /admin/templates/{id}` (`If-Match` 필수) | 200 + 새 `ETag`             | 400, 404, 412, 428               |
+| `DELETE /admin/templates/{id}`                  | 204                         | 404                              |
+
+- 템플릿은 채널(email, push) 하나에 속합니다. email은 `subject`·`htmlBody`가 필수(`textBody` 선택), push는 `title`·`body`가 필수(`data` 선택)이고, 다른 채널의 필드는 거부합니다. `key`와 `channel`은 바꿀 수 없습니다.
+- 수정은 낙관적 락입니다. 조회 응답의 `ETag`를 `If-Match`로 보내야 하고, 그사이 다른 수정이 있었으면 412(`precondition-failed`), `If-Match`가 없으면 428(`precondition-required`)입니다. `If-Match`는 강한 비교를 하므로 약한 ETag(`W/"..."`)는 일치하지 않습니다.
+- 삭제는 soft delete입니다. 삭제된 템플릿의 `key`는 다시 쓸 수 없습니다(과거 발송 이력이 같은 key로 다른 내용을 가리키지 않도록).
+- 목록은 id 순서의 커서 페이지네이션입니다. `nextCursor`는 불투명한 값으로 그대로 다음 요청에 전달합니다.
+- CORS를 켤 때는 브라우저 클라이언트가 읽을 수 있도록 `exposedHeaders`에 `ETag`와 `Location`을 포함해야 합니다.
 
 ## 헬스체크
 
