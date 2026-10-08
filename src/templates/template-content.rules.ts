@@ -69,7 +69,3 @@ export function checkTemplateContent(
   }
   return errors;
 }
-
-export function contentFieldsOf(channel: TemplateChannel): ContentField[] {
-  return [...FIELDS[channel].required, ...FIELDS[channel].optional];
-}
