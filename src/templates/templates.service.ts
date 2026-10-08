@@ -15,6 +15,7 @@ import {
   checkTemplateContent,
   type TemplateContent,
 } from './template-content.rules';
+import { checkTemplateVariables } from './rendering/template-variables.rules';
 import { Template } from './template.entity';
 import { TemplateChanges, TemplatesRepository } from './templates.repository';
 
@@ -23,7 +24,7 @@ export class TemplatesService {
   constructor(private readonly templates: TemplatesRepository) {}
 
   async create(dto: CreateTemplateDto): Promise<Template> {
-    this.assertContent(dto.channel, dto);
+    this.assertContent(dto.channel, dto, dto.requiredVariables ?? []);
     try {
       return await this.templates.insert({
         key: dto.key,
@@ -95,7 +96,8 @@ export class TemplatesService {
     const changes: TemplateChanges = Object.fromEntries(
       Object.entries(dto).filter(([, value]) => value !== undefined),
     );
-    this.assertContent(current.channel, { ...current, ...changes });
+    const merged = { ...current, ...changes };
+    this.assertContent(current.channel, merged, merged.requiredVariables);
     if (Object.keys(changes).length === 0) return current;
 
     // The version check is repeated in the UPDATE itself: another request may
@@ -118,16 +120,27 @@ export class TemplatesService {
     }
   }
 
+  // Channel rules first: placeholders are only checked in fields the channel
+  // actually uses.
   private assertContent(
     channel: Template['channel'],
     content: TemplateContent,
+    requiredVariables: string[],
   ): void {
-    const errors = checkTemplateContent(channel, content);
-    if (errors.length > 0) {
+    const channelErrors = checkTemplateContent(channel, content);
+    if (channelErrors.length > 0) {
       throw new ProblemException(
         ProblemTypes.VALIDATION_FAILED,
         'Template content does not match its channel.',
-        { errors },
+        { errors: channelErrors },
+      );
+    }
+    const variableErrors = checkTemplateVariables(content, requiredVariables);
+    if (variableErrors.length > 0) {
+      throw new ProblemException(
+        ProblemTypes.VALIDATION_FAILED,
+        'Template placeholders do not match requiredVariables.',
+        { errors: variableErrors },
       );
     }
   }

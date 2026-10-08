@@ -147,6 +147,57 @@ describe('Templates (e2e)', () => {
     });
   });
 
+  describe('placeholders', () => {
+    it('rejects a template that uses an undeclared variable', async () => {
+      const res = await http()
+        .post(BASE)
+        .send({ ...emailTemplate, requiredVariables: [] })
+        .expect(400);
+
+      expect(res.body).toMatchObject({
+        type: '/problems/validation-failed',
+        errors: [
+          {
+            field: 'requiredVariables',
+            message: 'variables used in the template but not declared: code',
+          },
+        ],
+      });
+    });
+
+    it('rejects unsupported template syntax with the field name', async () => {
+      const res = await http()
+        .post(BASE)
+        .send({
+          ...emailTemplate,
+          htmlBody: '{{#if vip}}<p>{{code}}</p>{{/if}}',
+        })
+        .expect(400);
+
+      expect(res.body).toMatchObject({ errors: [{ field: 'htmlBody' }] });
+    });
+
+    it('checks placeholders against the merged content on update', async () => {
+      const created = await create(emailTemplate);
+      const id = (created.body as { id: number }).id;
+
+      await http()
+        .patch(`${BASE}/${id}`)
+        .set('If-Match', '"1"')
+        .send({ subject: 'Hello {{name}}' })
+        .expect(400);
+
+      await http()
+        .patch(`${BASE}/${id}`)
+        .set('If-Match', '"1"')
+        .send({
+          subject: 'Hello {{name}}',
+          requiredVariables: ['code', 'name'],
+        })
+        .expect(200);
+    });
+  });
+
   describe('key uniqueness', () => {
     it('allows only one of two concurrent creates with the same key', async () => {
       const responses = await Promise.all([
