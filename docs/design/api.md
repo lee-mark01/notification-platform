@@ -154,14 +154,17 @@ Location: /notifications/1024
 
 ## 사용자 API
 
-### `POST /devices` — FCM 토큰 등록 (Phase 2)
+### `POST /devices` — FCM 토큰 등록 (구현됨)
 
 ```json
 { "token": "fcm-registration-token", "platform": "web" }
 ```
 
 - 새 토큰이면 201, 이미 있으면 소유자·`last_seen_at`을 갱신하고 200 (upsert). 비활성 토큰을 다시 등록하면 활성화한다.
-- 실패: 400, 401.
+- 응답: `{ "id": 12, "platform": "web", "active": true, "lastSeenAt": "..." }` (토큰은 돌려주지 않는다)
+- 토큰은 사람이 아니라 브라우저를 가리킨다. 다른 사용자가 같은 브라우저에서 등록하면 토큰이 그 사용자로 옮겨 간다.
+- JWT는 HS256만 받고 `exp`가 반드시 있어야 하며 `sub`는 존재하는 사용자 id여야 한다. 로컬·데모용 발급: `npm run user:token -- <email>`
+- 실패: 400, 401 (`WWW-Authenticate: Bearer`).
 
 ### `GET /me/notifications` — 내 알림함 (Phase 4)
 
