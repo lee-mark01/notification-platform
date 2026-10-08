@@ -101,6 +101,7 @@ npm run client:create -- my-service   # API 키 발급 (한 번만 표시)
 | 같은 키가 처리 중        | 409 `idempotency-key-in-progress` + `Retry-After`            |
 
 - 접수 시점에 템플릿을 렌더링해 저장합니다. 이후 템플릿이 바뀌어도 이미 접수한 알림의 내용은 그대로입니다.
+- 접수한 알림은 채널 × 유형별 큐 4개(`email-transactional` 등)에 `jobId = notification-{id}`로 등록됩니다. Redis가 내려가 있어도 접수는 202로 성공하고 알림은 `PENDING`으로 남습니다(E2E로 확인).
 - 같은 키로 동시에 10건을 보내도 알림은 1건만 생깁니다(E2E로 확인).
 - 상태는 `GET /notifications/{id}`로 조회합니다. 다른 클라이언트의 알림은 404입니다.
 - 자세한 계약은 [API 명세](docs/design/api.md), 처리 방식은 [ADR-0002](docs/adr/0002-delivery-guarantee-and-idempotency.md).
