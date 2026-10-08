@@ -105,6 +105,12 @@ npm run client:create -- my-service   # API 키 발급 (한 번만 표시)
 - 상태는 `GET /notifications/{id}`로 조회합니다. 다른 클라이언트의 알림은 404입니다.
 - 자세한 계약은 [API 명세](docs/design/api.md), 처리 방식은 [ADR-0002](docs/adr/0002-delivery-guarantee-and-idempotency.md).
 
+아래는 실행 중인 API에 같은 `Idempotency-Key`로 요청을 다시 보낸 실제 응답입니다. 요청 화면의 API 키는 가렸습니다.
+
+![같은 키·같은 본문 재요청: 202, Idempotent-Replayed: true, 같은 Location](docs/images/p2-idempotency-replay.png)
+
+![같은 키·다른 본문: 422 idempotency-key-reused](docs/images/p2-idempotency-reused.png)
+
 ## 템플릿 API
 
 관리용 템플릿 CRUD는 `/admin/templates`에 있습니다. 관리자 인증은 Phase 6에서 추가합니다.
