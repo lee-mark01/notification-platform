@@ -77,7 +77,7 @@ describe('Notification intake (e2e)', () => {
     dataSource.getRepository(Notification).count();
 
   describe('accepting', () => {
-    it('stores a PENDING notification with rendered content and returns 202', async () => {
+    it('stores the notification with rendered content and returns 202', async () => {
       const res = await post(emailRequest()).expect(202);
 
       const id = (res.body as { id: number }).id;
@@ -89,7 +89,7 @@ describe('Notification intake (e2e)', () => {
         .getRepository(Notification)
         .findOneByOrFail({ id });
       expect(row).toMatchObject({
-        status: 'PENDING',
+        status: 'QUEUED',
         channel: 'email',
         category: 'transactional',
         recipientEmail: 'someone@example.com',
@@ -412,7 +412,7 @@ describe('Notification intake (e2e)', () => {
 
       expect(res.body).toMatchObject({
         id,
-        status: 'PENDING',
+        status: 'QUEUED',
         channel: 'email',
         templateKey: 'email-verification',
         templateVersion: 1,
