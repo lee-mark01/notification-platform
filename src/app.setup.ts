@@ -14,6 +14,9 @@ import type { EnvironmentVariables } from './config/env.validation';
 export function configureApp(app: NestExpressApplication): void {
   // Do not advertise the server framework in every response.
   app.disable('x-powered-by');
+  // ETags mean one thing here: the version for If-Match on templates. Express
+  // would otherwise add weak body-hash ETags to every GET response.
+  app.set('etag', false);
 
   app.useGlobalPipes(createValidationPipe());
   app.useGlobalFilters(new ProblemDetailsFilter());
