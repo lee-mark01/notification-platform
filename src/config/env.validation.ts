@@ -4,9 +4,11 @@ import {
   IsEnum,
   IsInt,
   IsNotEmpty,
+  IsOptional,
   IsString,
   Max,
   Min,
+  ValidateIf,
   validateSync,
 } from 'class-validator';
 
@@ -18,6 +20,7 @@ export enum Environment {
 
 export enum EmailProviderKind {
   Fake = 'fake',
+  Ses = 'ses',
 }
 
 export enum PushProviderKind {
@@ -81,6 +84,34 @@ export class EnvironmentVariables {
 
   @IsEnum(EmailProviderKind)
   EMAIL_PROVIDER: EmailProviderKind = EmailProviderKind.Fake;
+
+  // Required only when SES sends email.
+  @ValidateIf(
+    (env: EnvironmentVariables) => env.EMAIL_PROVIDER === EmailProviderKind.Ses,
+  )
+  @IsString()
+  @IsNotEmpty()
+  AWS_REGION?: string;
+
+  @ValidateIf(
+    (env: EnvironmentVariables) => env.EMAIL_PROVIDER === EmailProviderKind.Ses,
+  )
+  @IsString()
+  @IsNotEmpty()
+  SES_FROM_ADDRESS?: string;
+
+  // Optional: without them the AWS SDK's default chain (IAM role) is used.
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  AWS_ACCESS_KEY_ID?: string;
+
+  @ValidateIf(
+    (env: EnvironmentVariables) => env.AWS_ACCESS_KEY_ID !== undefined,
+  )
+  @IsString()
+  @IsNotEmpty()
+  AWS_SECRET_ACCESS_KEY?: string;
 
   @IsEnum(PushProviderKind)
   PUSH_PROVIDER: PushProviderKind = PushProviderKind.Fake;

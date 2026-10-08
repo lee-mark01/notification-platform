@@ -85,6 +85,26 @@ describe('validate (environment variables)', () => {
       ).toBe(false);
     });
 
+    it('requires the SES region and sender when EMAIL_PROVIDER is ses', () => {
+      expect(() => validate({ ...valid, EMAIL_PROVIDER: 'ses' })).toThrow(
+        /AWS_REGION[\s\S]*SES_FROM_ADDRESS/,
+      );
+      expect(
+        validate({
+          ...valid,
+          EMAIL_PROVIDER: 'ses',
+          AWS_REGION: 'ap-northeast-2',
+          SES_FROM_ADDRESS: 'sender@example.com',
+        }).EMAIL_PROVIDER,
+      ).toBe('ses');
+    });
+
+    it('requires the secret key when an access key is given', () => {
+      expect(() =>
+        validate({ ...valid, AWS_ACCESS_KEY_ID: 'AKIAEXAMPLE' }),
+      ).toThrow(/AWS_SECRET_ACCESS_KEY/);
+    });
+
     it('fails on an unknown provider', () => {
       expect(() => validate({ ...valid, EMAIL_PROVIDER: 'smtp' })).toThrow(
         /EMAIL_PROVIDER/,
