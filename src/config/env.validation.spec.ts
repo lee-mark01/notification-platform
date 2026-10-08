@@ -48,4 +48,25 @@ describe('validate (environment variables)', () => {
       /NODE_ENV/,
     );
   });
+
+  describe('SWAGGER_ENABLED', () => {
+    it('defaults to false when unset', () => {
+      expect(validate(valid).SWAGGER_ENABLED).toBe(false);
+    });
+
+    it.each([
+      ['true', true],
+      ['false', false],
+    ])('parses "%s" as %s', (raw, expected) => {
+      expect(validate({ ...valid, SWAGGER_ENABLED: raw }).SWAGGER_ENABLED).toBe(
+        expected,
+      );
+    });
+
+    it('fails on values other than true or false', () => {
+      expect(() => validate({ ...valid, SWAGGER_ENABLED: 'yes' })).toThrow(
+        /SWAGGER_ENABLED/,
+      );
+    });
+  });
 });

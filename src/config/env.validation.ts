@@ -1,5 +1,6 @@
-import { plainToInstance } from 'class-transformer';
+import { plainToInstance, Transform } from 'class-transformer';
 import {
+  IsBoolean,
   IsEnum,
   IsInt,
   IsNotEmpty,
@@ -53,6 +54,21 @@ export class EnvironmentVariables {
   @Min(0)
   @Max(65535)
   REDIS_PORT: number;
+
+  // Implicit conversion would turn the string "false" into true, so booleans
+  // are parsed explicitly. Anything other than true/false fails validation.
+  @Transform(({ obj }: { obj: Record<string, unknown> }) =>
+    parseBoolean(obj.SWAGGER_ENABLED, false),
+  )
+  @IsBoolean()
+  SWAGGER_ENABLED: boolean = false;
+}
+
+function parseBoolean(value: unknown, fallback: boolean): unknown {
+  if (value === undefined || value === '') return fallback;
+  if (value === true || value === 'true') return true;
+  if (value === false || value === 'false') return false;
+  return value;
 }
 
 export function validate(

@@ -40,5 +40,7 @@ export default async function globalSetup(): Promise<void> {
     DB_PASSWORD: container.getUserPassword(),
     REDIS_HOST: process.env.REDIS_HOST ?? 'localhost',
     REDIS_PORT: process.env.REDIS_PORT ?? '6379',
+    // Explicit so a developer's .env cannot change test behavior.
+    SWAGGER_ENABLED: 'false',
   });
 }
