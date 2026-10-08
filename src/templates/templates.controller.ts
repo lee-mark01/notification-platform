@@ -7,7 +7,6 @@ import {
   HttpCode,
   HttpStatus,
   Param,
-  ParseIntPipe,
   Patch,
   Post,
   Query,
@@ -23,9 +22,9 @@ import {
 } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { etagFor } from '../common/http/etag';
+import { idParamPipe } from '../common/http/id-param.pipe';
 import { ApiProblemResponse } from '../common/problem/problem-details.dto';
 import { ProblemTypes } from '../common/problem/problem-types';
-import { ProblemException } from '../common/problem/problem.exception';
 import { CreateTemplateDto } from './dto/create-template.dto';
 import { ListTemplatesQuery } from './dto/list-templates.query';
 import {
@@ -35,13 +34,6 @@ import {
 import { UpdateTemplateDto } from './dto/update-template.dto';
 import { Template } from './template.entity';
 import { TemplatesService } from './templates.service';
-
-const idPipe = new ParseIntPipe({
-  exceptionFactory: () =>
-    new ProblemException(ProblemTypes.VALIDATION_FAILED, undefined, {
-      errors: [{ field: 'id', message: 'id must be an integer' }],
-    }),
-});
 
 const ETAG_HEADER = {
   ETag: { description: 'Current version; send it back as If-Match.' },
@@ -92,7 +84,7 @@ export class TemplatesController {
   @ApiOkResponse({ type: TemplateResponse, headers: ETAG_HEADER })
   @ApiProblemResponse(ProblemTypes.RESOURCE_NOT_FOUND)
   async get(
-    @Param('id', idPipe) id: number,
+    @Param('id', idParamPipe()) id: number,
     @Res({ passthrough: true }) res: Response,
   ): Promise<TemplateResponse> {
     return this.withETag(res, await this.templates.get(id));
@@ -111,7 +103,7 @@ export class TemplatesController {
   @ApiProblemResponse(ProblemTypes.PRECONDITION_FAILED)
   @ApiProblemResponse(ProblemTypes.PRECONDITION_REQUIRED)
   async update(
-    @Param('id', idPipe) id: number,
+    @Param('id', idParamPipe()) id: number,
     @Headers('if-match') ifMatch: string | undefined,
     @Body() dto: UpdateTemplateDto,
     @Res({ passthrough: true }) res: Response,
@@ -124,7 +116,7 @@ export class TemplatesController {
   @ApiOperation({ summary: 'Soft-delete a template; its key stays reserved' })
   @ApiNoContentResponse()
   @ApiProblemResponse(ProblemTypes.RESOURCE_NOT_FOUND)
-  async remove(@Param('id', idPipe) id: number): Promise<void> {
+  async remove(@Param('id', idParamPipe()) id: number): Promise<void> {
     await this.templates.remove(id);
   }
 
