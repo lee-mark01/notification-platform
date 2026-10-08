@@ -13,3 +13,26 @@
 - AWS SES, SNS, Firebase Cloud Messaging
 - Jest, Testcontainers, k6
 - Docker Compose, GitHub Actions
+
+## 실행
+
+요구 사항: Node.js 24, Docker
+
+```bash
+cp .env.example .env
+docker compose up -d
+npm ci && npm run start:dev
+```
+
+`docker compose up -d`는 MySQL과 Redis만 띄웁니다. 앱까지 컨테이너로 실행하려면 `docker compose --profile app up -d --build`를 사용합니다.
+
+MySQL은 로컬에 설치된 MySQL과 충돌하지 않도록 호스트 포트 3307을 기본값으로 사용합니다.
+
+## 테스트
+
+```bash
+npm test          # 단위 테스트
+npm run test:e2e  # E2E 테스트
+npm run lint
+npm run typecheck
+```
