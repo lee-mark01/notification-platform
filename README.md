@@ -112,6 +112,19 @@ npm run client:create -- my-service   # API 키 발급 (한 번만 표시)
 
 ![같은 키·다른 본문: 422 idempotency-key-reused](docs/images/p2-idempotency-reused.png)
 
+## 발송 처리 (Worker)
+
+큐마다 BullMQ Worker가 job을 꺼내 발송합니다. 상태 전이는 모두 조건부 UPDATE 한 문장입니다([상태 머신](docs/design/state-machine.md)).
+
+1. 점유: `PENDING·QUEUED·RETRYING → SENDING` (또는 lease가 만료된 `SENDING` 재점유), `lease_until = DB 시각 + 60초`
+2. Provider 호출: DB 트랜잭션 밖에서
+3. 결과 기록: 상태(`SENT`·`RETRYING`·`FAILED`)와 `delivery_attempt` 1행을 한 트랜잭션으로
+
+- 같은 알림의 job이 두 번 실행돼도 발송은 한 번입니다. 이미 `SENT`면 건너뛰고, 다른 Worker가 lease를 잡고 있으면 Provider를 부르지 않고 job을 실패시킵니다(E2E로 확인).
+- Provider는 공통 인터페이스 뒤에 있습니다(어댑터 패턴). 테스트는 결과·지연·실패율을 주입할 수 있는 `FakeProvider`를 씁니다. 채널별 Provider는 `EMAIL_PROVIDER`, `PUSH_PROVIDER`로 고릅니다.
+- `WORKERS_ENABLED=false`면 API만 띄웁니다.
+- 재시도 횟수·백오프·DLQ·수신거부 검사는 Phase 3에서 추가합니다.
+
 ## 템플릿 API
 
 관리용 템플릿 CRUD는 `/admin/templates`에 있습니다. 관리자 인증은 Phase 6에서 추가합니다.

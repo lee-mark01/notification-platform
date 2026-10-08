@@ -16,6 +16,14 @@ export enum Environment {
   Test = 'test',
 }
 
+export enum EmailProviderKind {
+  Fake = 'fake',
+}
+
+export enum PushProviderKind {
+  Fake = 'fake',
+}
+
 export class EnvironmentVariables {
   @IsEnum(Environment)
   NODE_ENV: Environment = Environment.Development;
@@ -62,6 +70,25 @@ export class EnvironmentVariables {
   )
   @IsBoolean()
   SWAGGER_ENABLED: boolean = false;
+
+  // Lets an instance serve only the API. Tests that check the QUEUED state
+  // turn workers off so a job is not picked up mid-assertion.
+  @Transform(({ obj }: { obj: Record<string, unknown> }) =>
+    parseBoolean(obj.WORKERS_ENABLED, true),
+  )
+  @IsBoolean()
+  WORKERS_ENABLED: boolean = true;
+
+  @IsEnum(EmailProviderKind)
+  EMAIL_PROVIDER: EmailProviderKind = EmailProviderKind.Fake;
+
+  @IsEnum(PushProviderKind)
+  PUSH_PROVIDER: PushProviderKind = PushProviderKind.Fake;
+
+  // Fixed delay per fake send, for load tests (D10).
+  @IsInt()
+  @Min(0)
+  FAKE_PROVIDER_LATENCY_MS: number = 0;
 }
 
 function parseBoolean(value: unknown, fallback: boolean): unknown {

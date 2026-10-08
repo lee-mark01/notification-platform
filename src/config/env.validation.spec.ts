@@ -69,4 +69,26 @@ describe('validate (environment variables)', () => {
       );
     });
   });
+  describe('workers and providers', () => {
+    it('runs workers with fake providers by default', () => {
+      const config = validate(valid);
+
+      expect(config.WORKERS_ENABLED).toBe(true);
+      expect(config.EMAIL_PROVIDER).toBe('fake');
+      expect(config.PUSH_PROVIDER).toBe('fake');
+      expect(config.FAKE_PROVIDER_LATENCY_MS).toBe(0);
+    });
+
+    it('turns workers off with WORKERS_ENABLED=false', () => {
+      expect(
+        validate({ ...valid, WORKERS_ENABLED: 'false' }).WORKERS_ENABLED,
+      ).toBe(false);
+    });
+
+    it('fails on an unknown provider', () => {
+      expect(() => validate({ ...valid, EMAIL_PROVIDER: 'smtp' })).toThrow(
+        /EMAIL_PROVIDER/,
+      );
+    });
+  });
 });
