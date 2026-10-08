@@ -3,6 +3,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { EnvironmentVariables, validate } from './config/env.validation';
 import { buildDataSourceOptions } from './database/database.options';
+import { DevicesModule } from './devices/devices.module';
 import { HealthModule } from './health/health.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { WorkerModule } from './queue/worker.module';
@@ -33,6 +34,7 @@ import { TemplatesModule } from './templates/templates.module';
     HealthModule,
     TemplatesModule,
     NotificationsModule,
+    DevicesModule,
     WorkerModule,
   ],
 })
