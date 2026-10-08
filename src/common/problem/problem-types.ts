@@ -46,6 +46,11 @@ export const ProblemTypes = {
     title: 'The template cannot be used for this request',
     status: HttpStatus.UNPROCESSABLE_ENTITY,
   },
+  RECIPIENT_UNUSABLE: {
+    type: '/problems/recipient-unusable',
+    title: 'The recipient cannot be resolved',
+    status: HttpStatus.UNPROCESSABLE_ENTITY,
+  },
   PRECONDITION_FAILED: {
     type: '/problems/precondition-failed',
     title: 'The resource was modified; If-Match does not match its ETag',

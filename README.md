@@ -73,6 +73,7 @@ MySQL은 로컬에 설치된 MySQL과 충돌하지 않도록 호스트 포트 33
 | `/problems/idempotency-key-reused`      | 422              | 같은 키가 다른 요청 본문으로 재사용됨                                     |
 | `/problems/template-key-conflict`       | 409              | 이미 사용 중인 템플릿 key (삭제된 템플릿 포함)                            |
 | `/problems/template-unusable`           | 422              | 템플릿이 없거나 삭제됨, 채널 불일치, 필수 변수 누락                       |
+| `/problems/recipient-unusable`          | 422              | 수신자를 확인할 수 없음 (없는 사용자)                                     |
 | `/problems/precondition-failed`         | 412              | `If-Match`가 현재 `ETag`와 다름 (그사이 수정됨)                           |
 | `/problems/precondition-required`       | 428              | `If-Match` 헤더가 필요한 요청에 없음                                      |
 | `/problems/internal-error`              | 500              | 서버 내부 오류. 상세 내용은 응답하지 않고 로그에만 남김                   |
@@ -83,6 +84,26 @@ MySQL은 로컬에 설치된 MySQL과 충돌하지 않도록 호스트 포트 33
 아래는 실행 중인 API에 없는 템플릿(`GET /admin/templates/999`)을 요청한 실제 응답입니다. 본문은 RFC 9457 형식이고 `Content-Type`은 `application/problem+json`입니다.
 
 ![없는 템플릿 조회 시 404 Problem Details 응답과 응답 헤더](docs/images/p0-problem-details.png)
+
+## 발송 API
+
+내부 서비스는 `X-API-Key`로 인증하고 `POST /notifications`로 발송을 요청합니다. 모든 요청에 `Idempotency-Key`가 필요합니다.
+
+```bash
+npm run client:create -- my-service   # API 키 발급 (한 번만 표시)
+```
+
+| 상황                     | 응답                                                         |
+| ------------------------ | ------------------------------------------------------------ |
+| 접수                     | 202 `{ "id": ... }` + `Location` (발송은 큐 뒤에서 비동기로) |
+| 같은 키·같은 본문 재요청 | 저장된 응답 그대로 + `Idempotent-Replayed: true`             |
+| 같은 키·다른 본문        | 422 `idempotency-key-reused`                                 |
+| 같은 키가 처리 중        | 409 `idempotency-key-in-progress` + `Retry-After`            |
+
+- 접수 시점에 템플릿을 렌더링해 저장합니다. 이후 템플릿이 바뀌어도 이미 접수한 알림의 내용은 그대로입니다.
+- 같은 키로 동시에 10건을 보내도 알림은 1건만 생깁니다(E2E로 확인).
+- 상태는 `GET /notifications/{id}`로 조회합니다. 다른 클라이언트의 알림은 404입니다.
+- 자세한 계약은 [API 명세](docs/design/api.md), 처리 방식은 [ADR-0002](docs/adr/0002-delivery-guarantee-and-idempotency.md).
 
 ## 템플릿 API
 

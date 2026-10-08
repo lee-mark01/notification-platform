@@ -17,6 +17,8 @@ export class ProblemException extends HttpException {
     readonly problem: ProblemType,
     readonly detail?: string,
     readonly extensions: ProblemExtensions = {},
+    /** Response headers to send with the problem, e.g. Retry-After. */
+    readonly headers: Record<string, string> = {},
   ) {
     super(detail ?? problem.title, problem.status);
   }

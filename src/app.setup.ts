@@ -37,6 +37,7 @@ function setupSwagger(app: NestExpressApplication): void {
           'Problem Details (application/problem+json).',
       )
       .setVersion('0.1.0')
+      .addApiKey({ type: 'apiKey', in: 'header', name: 'X-API-Key' }, 'api-key')
       .build(),
     { extraModels: [ProblemDetailsDto, FieldErrorDto] },
   );

@@ -12,6 +12,7 @@ import { ProblemException } from './problem.exception';
 
 function createHost(originalUrl = '/notifications?token=secret') {
   const response = {
+    set: jest.fn().mockReturnThis(),
     status: jest.fn().mockReturnThis(),
     type: jest.fn().mockReturnThis(),
     json: jest.fn().mockReturnThis(),
@@ -88,6 +89,22 @@ describe('ProblemDetailsFilter', () => {
         status: 422,
       }),
     );
+  });
+
+  it('sends the headers a ProblemException carries', () => {
+    const { host, response } = createHost();
+
+    filter.catch(
+      new ProblemException(
+        ProblemTypes.IDEMPOTENCY_KEY_IN_PROGRESS,
+        undefined,
+        {},
+        { 'Retry-After': '3' },
+      ),
+      host,
+    );
+
+    expect(response.set).toHaveBeenCalledWith({ 'Retry-After': '3' });
   });
 
   it('maps Nest HttpExceptions to about:blank with the status reason', () => {

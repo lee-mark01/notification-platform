@@ -61,6 +61,11 @@ export class TemplatesService {
     return template;
   }
 
+  /** Active (not deleted) template by key, or null. */
+  findActiveByKey(key: string): Promise<Template | null> {
+    return this.templates.findActiveByKey(key);
+  }
+
   async list(query: ListTemplatesQuery): Promise<Page<Template>> {
     const afterId = query.cursor ? decodeIdCursor(query.cursor).id : undefined;
     const rows = await this.templates.findPage({

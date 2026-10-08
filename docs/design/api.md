@@ -65,11 +65,13 @@ Content-Type: application/json
 202 Accepted
 Location: /notifications/1024
 
-{ "id": 1024, "status": "QUEUED" }
+{ "id": 1024 }
 ```
 
 - 202인 이유: 발송은 큐 뒤 Worker가 비동기로 한다. 응답은 "접수했다"는 뜻이다.
-- `status`는 큐 등록까지 성공하면 `QUEUED`, Redis 장애 등으로 등록이 늦어지면 `PENDING`(Sweeper가 이어서 등록).
+- 본문은 `id`만 담는다. 같은 키로 재요청하면 원래 응답과 같아야 하는데, 상태는 접수 뒤 계속 바뀌므로 응답에 넣지 않고 `GET /notifications/{id}`로 조회한다.
+- 접수 시 템플릿을 렌더링해 저장한다. 이후 템플릿이 바뀌어도 이 알림의 내용은 바뀌지 않는다.
+- 접수가 실패하면(400·422) 멱등 키를 저장하지 않는다. 요청을 고쳐 같은 키로 다시 보낼 수 있다.
 
 실패:
 
@@ -80,7 +82,8 @@ Location: /notifications/1024
 | 401  | `about:blank`                 | API 키 없음·불일치                              |
 | 409  | `idempotency-key-in-progress` | 같은 키 처리 중                                 |
 | 422  | `idempotency-key-reused`      | 같은 키, 다른 본문                              |
-| 422  | `template-unusable` (신규)    | 템플릿 없음·삭제됨, 채널 불일치, 필수 변수 누락 |
+| 422  | `template-unusable`           | 템플릿 없음·삭제됨, 채널 불일치, 필수 변수 누락 |
+| 422  | `recipient-unusable`          | `userId`의 사용자가 없음                        |
 
 `template-unusable`을 400이 아니라 422로 둔 이유: 요청 형식은 맞지만 서버 상태(템플릿) 기준으로 처리할 수 없는 경우라서다. 세부 원인은 `errors`에 담는다.
 
@@ -240,10 +243,9 @@ Location: /notifications/1024
 | `GET /health/live`  | 200                                                      |
 | `GET /health/ready` | MySQL·Redis 정상 200 / 하나라도 실패 503 (Terminus 형식) |
 
-## problem type 추가 계획
+## 추가한 problem type
 
-기존 카탈로그(`src/common/problem/problem-types.ts`)에 Phase 2에서 추가한다.
-
-| type                          | status | 의미                                                |
-| ----------------------------- | ------ | --------------------------------------------------- |
-| `/problems/template-unusable` | 422    | 템플릿이 없거나 삭제됨, 채널 불일치, 필수 변수 누락 |
+| type                           | status | 의미                                                |
+| ------------------------------ | ------ | --------------------------------------------------- |
+| `/problems/template-unusable`  | 422    | 템플릿이 없거나 삭제됨, 채널 불일치, 필수 변수 누락 |
+| `/problems/recipient-unusable` | 422    | 수신자를 확인할 수 없음 (없는 사용자)               |

@@ -17,6 +17,11 @@ describe('buildDataSourceOptions', () => {
     expect(options.migrationsRun).toBe(false);
   });
 
+  it('returns BIGINT values without losing precision', () => {
+    expect(options.supportBigNumbers).toBe(true);
+    expect(options.bigNumberStrings).toBe(false);
+  });
+
   it('uses utf8mb4 and UTC', () => {
     expect(options.charset).toBe('utf8mb4');
     expect(options.timezone).toBe('Z');
