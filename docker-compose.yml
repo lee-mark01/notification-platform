@@ -80,6 +80,16 @@ services:
     environment: *container-env
     ports:
       - '${PORT:-3000}:3000'
+    healthcheck:
+      # Readiness, not liveness: the container is healthy only when it can
+      # reach MySQL and Redis.
+      test:
+        - CMD-SHELL
+        - wget -q -O /dev/null http://127.0.0.1:3000/health/ready || exit 1
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 15s
     depends_on:
       migrate:
         condition: service_completed_successfully
