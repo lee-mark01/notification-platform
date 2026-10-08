@@ -26,6 +26,7 @@ export enum EmailProviderKind {
 
 export enum PushProviderKind {
   Fake = 'fake',
+  Fcm = 'fcm',
 }
 
 export class EnvironmentVariables {
@@ -122,6 +123,27 @@ export class EnvironmentVariables {
 
   @IsEnum(PushProviderKind)
   PUSH_PROVIDER: PushProviderKind = PushProviderKind.Fake;
+
+  // Required only when FCM sends push. A path to the service account JSON,
+  // kept outside the repository.
+  @ValidateIf(
+    (env: EnvironmentVariables) => env.PUSH_PROVIDER === PushProviderKind.Fcm,
+  )
+  @IsString()
+  @IsNotEmpty()
+  GOOGLE_APPLICATION_CREDENTIALS?: string;
+
+  @ValidateIf(
+    (env: EnvironmentVariables) => env.PUSH_PROVIDER === PushProviderKind.Fcm,
+  )
+  @IsString()
+  @IsNotEmpty()
+  FIREBASE_PROJECT_ID?: string;
+
+  // Comma-separated browser origins allowed to call the API (the web push
+  // demo page). Empty disables CORS.
+  @IsString()
+  CORS_ORIGINS: string = '';
 
   // Fixed delay per fake send, for load tests (D10).
   @IsInt()
