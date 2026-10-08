@@ -1,0 +1,249 @@
+# API 명세 (초안)
+
+Phase 2~6에서 구현할 API의 계약이다. 이미 구현한 것은 표시했다. 에러는 모두 [RFC 9457 Problem Details](../../README.md#에러-응답)이고(헬스체크 제외), 상태 전이는 [상태 머신](state-machine.md), 데이터는 [ERD](erd.md)를 따른다.
+
+## 인증
+
+| 대상                                                 | 방식                                                                                                | 실패 | 구현      |
+| ---------------------------------------------------- | --------------------------------------------------------------------------------------------------- | ---- | --------- |
+| 발송 API (`/notifications`, `/notification-batches`) | `X-API-Key` 헤더 → SHA-256 해시로 `api_client` 조회                                                 | 401  | Phase 2   |
+| 사용자 API (`/me/*`, `/devices`)                     | `Authorization: Bearer <JWT>` (HS256, `sub` = 사용자 id). 토큰은 별도 인증 서비스가 발급한다고 가정 | 401  | Phase 2·4 |
+| 관리자 API (`/admin/*`)                              | `X-Admin-Key` 헤더, 상수 시간 비교                                                                  | 401  | Phase 6   |
+| 웹훅 (`/webhooks/ses`)                               | SNS 메시지 서명 검증                                                                                | 403  | Phase 4   |
+| 헬스체크                                             | 없음                                                                                                | —    | 구현됨    |
+
+- 401 응답은 `about:blank`와 `WWW-Authenticate` 헤더를 쓴다.
+- 클라이언트·사용자는 자기 리소스만 볼 수 있다. 남의 리소스는 존재를 숨기기 위해 403이 아니라 404로 응답한다.
+
+## 멱등성 (`Idempotency-Key`)
+
+`POST /notifications`, `POST /notification-batches`는 `Idempotency-Key` 헤더가 필수다. 규칙은 [상태 머신 — 멱등 키](state-machine.md#멱등-키)와 같다.
+
+| 상황                      | 응답                                               |
+| ------------------------- | -------------------------------------------------- |
+| 헤더 없음                 | 400 `idempotency-key-missing`                      |
+| 처음 보는 키              | 정상 처리                                          |
+| 같은 키·같은 본문, 완료됨 | 저장된 응답을 그대로 + `Idempotent-Replayed: true` |
+| 같은 키·다른 본문         | 422 `idempotency-key-reused`                       |
+| 같은 키, 아직 처리 중     | 409 `idempotency-key-in-progress` + `Retry-After`  |
+
+- 키는 1~255자, 클라이언트별로 유일하다. 24시간 보관한다.
+- "같은 본문"은 JSON 키를 정렬한 정규화 본문의 SHA-256으로 비교한다.
+
+## 발송 API
+
+### `POST /notifications` — 단건 발송 접수 (Phase 2)
+
+요청:
+
+```http
+POST /notifications
+X-API-Key: <key>
+Idempotency-Key: 2f1c0c9e-...
+Content-Type: application/json
+
+{
+  "channel": "email",
+  "category": "transactional",
+  "templateKey": "email-verification",
+  "recipient": { "userId": 42 },
+  "variables": { "code": "381920" }
+}
+```
+
+| 필드        | 규칙                                                                                 |
+| ----------- | ------------------------------------------------------------------------------------ |
+| channel     | `email` / `push`, 템플릿 채널과 같아야 함                                            |
+| category    | `transactional` / `marketing`                                                        |
+| templateKey | 삭제되지 않은 템플릿                                                                 |
+| recipient   | email: `userId` 또는 `email` 중 하나 이상(둘 다면 `email` 우선). push: `userId` 필수 |
+| variables   | 템플릿 `requiredVariables`를 모두 포함                                               |
+
+응답:
+
+```http
+202 Accepted
+Location: /notifications/1024
+
+{ "id": 1024, "status": "QUEUED" }
+```
+
+- 202인 이유: 발송은 큐 뒤 Worker가 비동기로 한다. 응답은 "접수했다"는 뜻이다.
+- `status`는 큐 등록까지 성공하면 `QUEUED`, Redis 장애 등으로 등록이 늦어지면 `PENDING`(Sweeper가 이어서 등록).
+
+실패:
+
+| 상태 | type                          | 경우                                            |
+| ---- | ----------------------------- | ----------------------------------------------- |
+| 400  | `validation-failed`           | 필드 형식 오류                                  |
+| 400  | `idempotency-key-missing`     | 헤더 없음                                       |
+| 401  | `about:blank`                 | API 키 없음·불일치                              |
+| 409  | `idempotency-key-in-progress` | 같은 키 처리 중                                 |
+| 422  | `idempotency-key-reused`      | 같은 키, 다른 본문                              |
+| 422  | `template-unusable` (신규)    | 템플릿 없음·삭제됨, 채널 불일치, 필수 변수 누락 |
+
+`template-unusable`을 400이 아니라 422로 둔 이유: 요청 형식은 맞지만 서버 상태(템플릿) 기준으로 처리할 수 없는 경우라서다. 세부 원인은 `errors`에 담는다.
+
+### `GET /notifications/{id}` — 단건 상태 조회 (Phase 2)
+
+요청한 클라이언트의 알림만 조회한다.
+
+```json
+{
+  "id": 1024,
+  "channel": "email",
+  "category": "transactional",
+  "status": "SENT",
+  "templateKey": "email-verification",
+  "attempts": [
+    {
+      "attemptNo": 1,
+      "outcome": "TRANSIENT_ERROR",
+      "errorCode": "PROVIDER_5XX",
+      "durationMs": 120,
+      "startedAt": "..."
+    },
+    {
+      "attemptNo": 2,
+      "outcome": "SUCCESS",
+      "durationMs": 95,
+      "startedAt": "..."
+    }
+  ],
+  "createdAt": "...",
+  "sentAt": "...",
+  "deliveredAt": null,
+  "readAt": null
+}
+```
+
+실패: 401, 404 `resource-not-found`.
+
+### `POST /notification-batches` — 대량 발송 접수 (Phase 5)
+
+```json
+{
+  "channel": "email",
+  "category": "marketing",
+  "templateKey": "weekly-digest",
+  "recipients": [
+    { "userId": 1, "variables": { "name": "A" } },
+    { "email": "b@example.com", "variables": { "name": "B" } }
+  ]
+}
+```
+
+- `Idempotency-Key` 필수. 수신자 최대 10,000명.
+- 응답 202 `{ "batchId": 7, "totalCount": 2 }` + `Location: /notification-batches/7`.
+- 실패: 단건과 같고, 수신자 수 초과는 400 `validation-failed`.
+
+### `GET /notification-batches/{id}` — 배치 진행 상황 (Phase 5)
+
+```json
+{
+  "id": 7,
+  "status": "ENQUEUED",
+  "totalCount": 10000,
+  "byStatus": { "SENT": 9800, "QUEUED": 150, "FAILED": 50 }
+}
+```
+
+## 사용자 API
+
+### `POST /devices` — FCM 토큰 등록 (Phase 2)
+
+```json
+{ "token": "fcm-registration-token", "platform": "web" }
+```
+
+- 새 토큰이면 201, 이미 있으면 소유자·`last_seen_at`을 갱신하고 200 (upsert). 비활성 토큰을 다시 등록하면 활성화한다.
+- 실패: 400, 401.
+
+### `GET /me/notifications` — 내 알림함 (Phase 4)
+
+쿼리: `limit`(1~100, 기본 20), `cursor`, `unread`(`true`면 안읽음만).
+
+```json
+{
+  "items": [
+    {
+      "id": 1024,
+      "channel": "push",
+      "title": "새 메시지",
+      "body": "...",
+      "readAt": null,
+      "createdAt": "..."
+    }
+  ],
+  "nextCursor": "eyJjIjoi..."
+}
+```
+
+- 최신순. 커서는 `(created_at, id)`를 담은 불투명 값이다(동시각 정렬을 id로 보장).
+- 본문은 `rendered_title`, `rendered_body`(발송 당시 내용)를 보여준다.
+
+### `GET /me/notifications/unread-count` (Phase 4)
+
+`{ "count": 3 }`
+
+### `PATCH /me/notifications/{id}/read`, `PATCH /me/notifications/{id}/unread` (Phase 4)
+
+- 응답 200 `{ "id": 1024, "readAt": "..." }` (`unread`면 `readAt: null`).
+- 멱등: 이미 읽은 알림에 `read`를 다시 보내도 200이고 `readAt`은 처음 값 그대로다(장애 시나리오 12).
+- 남의 알림이면 404.
+
+### `POST /me/notifications/read-all` (Phase 4)
+
+`{ "updated": 3 }` — 안읽음만 갱신한 개수.
+
+### `PUT /me/marketing-consent` (Phase 3)
+
+```json
+{ "optIn": false }
+```
+
+- 응답 200 `{ "optIn": false, "updatedAt": "..." }`. 같은 값으로 다시 보내도 결과가 같다.
+- PLAN 초안의 `POST·DELETE /me/subscriptions/marketing` 대신, 원하는 최종 상태를 보내는 `PUT` 하나로 정했다. 동의·철회가 한 리소스의 두 값이라 멱등한 `PUT`이 더 자연스럽다.
+
+## 웹훅
+
+### `POST /webhooks/ses` (Phase 4)
+
+- SNS는 본문을 `Content-Type: text/plain`으로 보낸다. 이 경로만 원문 텍스트로 받아 JSON으로 파싱한다.
+- 처리 순서: 서명 검증(인증서 URL이 `sns.<region>.amazonaws.com` 도메인인지 포함) → `Type`별 처리.
+  - `SubscriptionConfirmation`: 설정한 토픽 ARN일 때만 `SubscribeURL`을 호출해 구독 확인.
+  - `Notification`: `webhook_event`에 저장(MessageId 유니크) → 이벤트 반영.
+- 응답: 성공·중복 모두 200(SNS가 재전송하지 않게). 서명 실패 403, 다른 토픽 403.
+
+## 관리자 API
+
+| 메서드·경로                              | 용도                                                                                                                           | 구현                     |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | ------------------------ |
+| `POST/GET/PATCH/DELETE /admin/templates` | 템플릿 CRUD (ETag·If-Match)                                                                                                    | 구현됨 (Guard는 Phase 6) |
+| `POST /admin/templates/{id}/preview`     | 변수를 넣어 렌더링 미리보기                                                                                                    | Phase 6                  |
+| `GET /admin/notifications`               | 발송 이력 검색: `from`, `to`, `channel`, `category`, `status`, `clientId`, `userId`, `email`, `templateKey`, `limit`, `cursor` | Phase 6                  |
+| `GET /admin/suppressions`                | 수신거부 목록 (`email`, `reason`, `active` 필터)                                                                               | Phase 6                  |
+| `POST /admin/suppressions`               | 관리자 등록 `{ email, note }` → 201                                                                                            | Phase 6                  |
+| `DELETE /admin/suppressions/{email}`     | 해제 (`released_at` 기록) → 204                                                                                                | Phase 6                  |
+| `GET /admin/stats/summary`               | `from`, `to`, `groupBy=channel,category` → 상태별 건수, 성공률, 읽음률                                                         | Phase 6                  |
+| `GET /admin/dlq`                         | DEAD 알림 목록 (커서)                                                                                                          | Phase 3                  |
+| `POST /admin/dlq/redrive`                | `{ "notificationIds": [..] }` → 각 알림 T8(DEAD → QUEUED) 후 재등록. 응답 `{ "redriven": n, "skipped": [..] }`                 | Phase 3                  |
+| `GET /admin/queues/metrics`              | 큐별 waiting·active·delayed·failed, DLQ 건수                                                                                   | Phase 7                  |
+
+- 목록은 모두 커서 페이지네이션(`{ items, nextCursor }`).
+- redrive는 이미 DEAD가 아닌 알림을 건너뛰고(`skipped`), 같은 요청을 반복해도 안전하다.
+
+## 헬스체크 (구현됨)
+
+| 경로                | 응답                                                     |
+| ------------------- | -------------------------------------------------------- |
+| `GET /health/live`  | 200                                                      |
+| `GET /health/ready` | MySQL·Redis 정상 200 / 하나라도 실패 503 (Terminus 형식) |
+
+## problem type 추가 계획
+
+기존 카탈로그(`src/common/problem/problem-types.ts`)에 Phase 2에서 추가한다.
+
+| type                          | status | 의미                                                |
+| ----------------------------- | ------ | --------------------------------------------------- |
+| `/problems/template-unusable` | 422    | 템플릿이 없거나 삭제됨, 채널 불일치, 필수 변수 누락 |
