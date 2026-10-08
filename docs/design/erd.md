@@ -60,6 +60,7 @@ erDiagram
         varchar rendered_title
         mediumtext rendered_body
         int attempt_count
+        datetime lease_until
         varchar provider_message_id UK
         varchar last_error_code
         datetime queued_at
@@ -166,27 +167,28 @@ erDiagram
 
 수신자 1명·채널 1개당 1행. 이 프로젝트에서 행이 가장 많이 쌓이는 테이블이다.
 
-| 컬럼                             | 타입                    | 설명                                                                      |
-| -------------------------------- | ----------------------- | ------------------------------------------------------------------------- |
-| id                               | BIGINT UNSIGNED PK      | BullMQ `jobId`로도 쓴다                                                   |
-| client_id                        | INT UNSIGNED FK         | 요청한 클라이언트                                                         |
-| batch_id                         | BIGINT UNSIGNED NULL FK | 대량 발송이면 배치                                                        |
-| user_id                          | BIGINT UNSIGNED NULL FK | 수신자. 푸시는 필수, 이메일은 회원이 아닌 주소로도 보낼 수 있어 NULL 허용 |
-| template_id                      | INT UNSIGNED FK         |                                                                           |
-| template_version                 | INT                     | 렌더링에 쓴 템플릿 버전                                                   |
-| channel                          | VARCHAR(20)             | `email` / `push`                                                          |
-| category                         | VARCHAR(20)             | `transactional` / `marketing`                                             |
-| status                           | VARCHAR(20)             | [상태 머신](state-machine.md) 참고                                        |
-| recipient_email                  | VARCHAR(320) NULL       | 이메일 채널의 수신 주소 (접수 시점 값)                                    |
-| variables                        | JSON                    | 렌더링 변수                                                               |
-| rendered_title                   | VARCHAR(255) NULL       | 렌더링된 제목 (이메일 subject / 푸시 title)                               |
-| rendered_body                    | MEDIUMTEXT NULL         | 렌더링된 본문. 템플릿이 나중에 바뀌어도 실제 발송 내용을 남긴다           |
-| attempt_count                    | INT                     | 발송 시도 횟수                                                            |
-| provider_message_id              | VARCHAR(255) NULL       | SES MessageId / FCM message name. 웹훅으로 알림을 찾는 키                 |
-| last_error_code                  | VARCHAR(64) NULL        | 마지막 실패 코드                                                          |
-| queued_at, sent_at, delivered_at | DATETIME(3) NULL        | 상태별 시각                                                               |
-| read_at                          | DATETIME(3) NULL        | 읽음 시각. 상태와 별도                                                    |
-| created_at, updated_at           | DATETIME(3)             |                                                                           |
+| 컬럼                             | 타입                    | 설명                                                                                                                                              |
+| -------------------------------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| id                               | BIGINT UNSIGNED PK      | BullMQ `jobId`로도 쓴다                                                                                                                           |
+| client_id                        | INT UNSIGNED FK         | 요청한 클라이언트                                                                                                                                 |
+| batch_id                         | BIGINT UNSIGNED NULL FK | 대량 발송이면 배치                                                                                                                                |
+| user_id                          | BIGINT UNSIGNED NULL FK | 수신자. 푸시는 필수, 이메일은 회원이 아닌 주소로도 보낼 수 있어 NULL 허용                                                                         |
+| template_id                      | INT UNSIGNED FK         |                                                                                                                                                   |
+| template_version                 | INT                     | 렌더링에 쓴 템플릿 버전                                                                                                                           |
+| channel                          | VARCHAR(20)             | `email` / `push`                                                                                                                                  |
+| category                         | VARCHAR(20)             | `transactional` / `marketing`                                                                                                                     |
+| status                           | VARCHAR(20)             | [상태 머신](state-machine.md) 참고                                                                                                                |
+| recipient_email                  | VARCHAR(320) NULL       | 이메일 채널의 수신 주소 (접수 시점 값)                                                                                                            |
+| variables                        | JSON                    | 렌더링 변수                                                                                                                                       |
+| rendered_title                   | VARCHAR(255) NULL       | 렌더링된 제목 (이메일 subject / 푸시 title)                                                                                                       |
+| rendered_body                    | MEDIUMTEXT NULL         | 렌더링된 본문. 템플릿이 나중에 바뀌어도 실제 발송 내용을 남긴다                                                                                   |
+| attempt_count                    | INT                     | 발송 시도 횟수                                                                                                                                    |
+| lease_until                      | DATETIME(3) NULL        | SENDING 점유 만료 시각. Worker가 발송 중 죽으면 이 시각이 지난 뒤에만 다른 Worker가 다시 가져간다 ([상태 머신](state-machine.md#발송-점유-lease)) |
+| provider_message_id              | VARCHAR(255) NULL       | SES MessageId / FCM message name. 웹훅으로 알림을 찾는 키                                                                                         |
+| last_error_code                  | VARCHAR(64) NULL        | 마지막 실패 코드                                                                                                                                  |
+| queued_at, sent_at, delivered_at | DATETIME(3) NULL        | 상태별 시각                                                                                                                                       |
+| read_at                          | DATETIME(3) NULL        | 읽음 시각. 상태와 별도                                                                                                                            |
+| created_at, updated_at           | DATETIME(3)             |                                                                                                                                                   |
 
 인덱스 (각각 어떤 조회를 위한 것인지):
 
@@ -300,6 +302,7 @@ SNS가 보낸 SES 이벤트. 같은 메시지의 중복 수신을 막고 원본�
 | processed_at    | DATETIME(3) NULL        | 반영 완료 시각                               |
 
 - `uq_webhook_event_sns_message_id (sns_message_id)`: 같은 메시지가 두 번 와도 한 번만 반영 (장애 시나리오 10).
+- `ix_webhook_event_unprocessed (processed_at, received_at)`: 아직 반영하지 못한 이벤트 재처리. SES는 우리 쪽 `SENT` 기록(과 `provider_message_id` 저장)이 커밋되기 전에 Delivery를 보낼 수 있어서, 그때는 알림을 찾지 못한다. 이런 이벤트는 `processed_at = NULL`로 두고 주기 작업이 다시 매칭한다(24시간까지).
 
 ## 설계 질문에 대한 답
 
@@ -332,6 +335,7 @@ SNS가 보낸 SES 이벤트. 같은 메시지의 중복 수신을 막고 원본�
 - 상태 전이는 앞으로만 간다. 각 이벤트는 "허용된 이전 상태"를 조건으로 조건부 UPDATE를 한다. 이미 더 뒤 상태면 영향 행 0으로 무시된다.
 - Open은 상태를 바꾸지 않고 `read_at`만 처음 한 번 채운다(`WHERE read_at IS NULL`). 그래서 Open이 먼저 와도, 뒤이어 온 Delivery가 SENT → DELIVERED 전이를 정상적으로 한다.
 - 이벤트 원본은 `webhook_event`에 모두 남으므로, 나중에 순서를 재구성할 수 있다.
+- 우리 쪽 `SENT` 기록보다 웹훅이 먼저 오는 경우도 있다. 그 이벤트는 알림을 아직 찾지 못하므로 미처리로 남겨 두고 재처리한다(위 `webhook_event` 인덱스 참고).
 
 ## 결정 요약
 
