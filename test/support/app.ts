@@ -1,7 +1,7 @@
-import type { INestApplication, ModuleMetadata } from '@nestjs/common';
+import type { ModuleMetadata } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import { Test } from '@nestjs/testing';
-import type { App } from 'supertest/types';
 import { AppModule } from '../../src/app.module';
 import { configureApp } from '../../src/app.setup';
 import { validate } from '../../src/config/env.validation';
@@ -21,7 +21,7 @@ export interface TestAppOptions extends Pick<
 // Builds the real AppModule with the same global wiring as main.ts.
 export async function createTestApp(
   options: TestAppOptions = {},
-): Promise<INestApplication<App>> {
+): Promise<NestExpressApplication> {
   let builder = Test.createTestingModule({
     imports: [AppModule, ...(options.imports ?? [])],
     controllers: options.controllers ?? [],
@@ -35,7 +35,7 @@ export async function createTestApp(
   }
 
   const moduleRef = await builder.compile();
-  const app = moduleRef.createNestApplication<INestApplication<App>>();
+  const app = moduleRef.createNestApplication<NestExpressApplication>();
   configureApp(app);
   await app.init();
   return app;

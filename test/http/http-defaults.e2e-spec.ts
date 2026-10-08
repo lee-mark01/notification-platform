@@ -22,4 +22,13 @@ describe('HTTP defaults (e2e)', () => {
 
     expect(res.body).toMatchObject({ type: 'about:blank', status: 404 });
   });
+
+  it.each([
+    ['a successful response', '/health/live', 200],
+    ['an error response', '/does-not-exist', 404],
+  ])('does not send X-Powered-By on %s', async (_label, path, status) => {
+    const res = await request(app.getHttpServer()).get(path).expect(status);
+
+    expect(res.headers).not.toHaveProperty('x-powered-by');
+  });
 });
