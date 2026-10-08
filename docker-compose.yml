@@ -46,6 +46,25 @@ services:
       timeout: 3s
       retries: 20
 
+  app:
+    # Opt-in: `docker compose --profile app up`. By default the app runs on the host.
+    profiles: ['app']
+    build: .
+    env_file: .env
+    environment:
+      DB_HOST: mysql
+      DB_PORT: 3306
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      PORT: 3000
+    ports:
+      - '${PORT:-3000}:3000'
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
 volumes:
   mysql-data:
   redis-data:
