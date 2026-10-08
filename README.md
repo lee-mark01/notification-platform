@@ -138,6 +138,26 @@ npm run user:token -- me@example.com   # 사용자를 찾거나 만들고 1시�
 - 같은 토큰을 다시 등록하면 200으로 갱신(upsert)하고, 비활성화된 토큰은 다시 활성화합니다.
 - 서명 알고리즘은 HS256으로 고정하고 `exp`가 없는 토큰은 거부합니다(`alg: none`, 만료, 다른 키 서명 등 E2E로 확인).
 
+## 웹 푸시 (FCM)
+
+`PUSH_PROVIDER=fcm`이면 Firebase Admin SDK로 사용자의 활성 토큰 전체에 한 번에 보냅니다(`sendEachForMulticast`).
+
+- 토큰 하나라도 받았으면 성공으로 기록합니다. 부분 성공을 재시도하면 이미 받은 브라우저에 또 가기 때문입니다.
+- FCM이 "등록되지 않은 토큰"이라고 답하면 그 토큰을 비활성화합니다. `invalid-argument`는 잘못된 토큰일 수도, 잘못된 메시지일 수도 있어서, 같은 메시지를 다른 토큰이 받았을 때만 토큰 문제로 보고 비활성화합니다(Firebase 토큰 관리 가이드).
+- 활성 토큰이 없으면 재시도 없이 실패합니다.
+
+### 데모 페이지로 직접 받아 보기
+
+`web-push-demo/`는 Firebase JS SDK와 서비스 워커로 이 브라우저의 FCM 토큰을 받아 `POST /devices`로 등록하는 페이지입니다. `.env`에 Firebase 웹 앱 설정과 VAPID 공개 키를 넣은 뒤:
+
+```bash
+npm run demo:config                     # .env → web-push-demo/config.js (커밋하지 않음)
+npm run demo:serve                      # http://localhost:8080
+npm run user:token -- me@example.com    # 페이지에 붙여넣을 JWT
+```
+
+API는 `PUSH_PROVIDER=fcm`, `CORS_ORIGINS=http://localhost:8080`으로 띄웁니다. 페이지에서 알림을 허용해 등록한 뒤 `POST /notifications`로 그 사용자(`recipient.userId`)에게 push를 보내면 브라우저 알림이 뜹니다.
+
 ## 템플릿 API
 
 관리용 템플릿 CRUD는 `/admin/templates`에 있습니다. 관리자 인증은 Phase 6에서 추가합니다.
