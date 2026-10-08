@@ -22,6 +22,16 @@ export function configureApp(app: NestExpressApplication): void {
   app.useGlobalFilters(new ProblemDetailsFilter());
 
   const config = app.get(ConfigService<EnvironmentVariables, true>);
+  const origins = parseOrigins(config.get('CORS_ORIGINS', { infer: true }));
+  if (origins.length > 0) {
+    app.enableCors({
+      origin: origins,
+      // Browsers hide response headers from scripts unless listed here; the
+      // API returns the created resource in Location and versions in ETag.
+      exposedHeaders: ['ETag', 'Location'],
+    });
+  }
+
   if (config.get('SWAGGER_ENABLED', { infer: true })) {
     setupSwagger(app);
   }
@@ -47,4 +57,11 @@ function setupSwagger(app: NestExpressApplication): void {
   );
   // UI at /docs, OpenAPI JSON at /docs-json.
   SwaggerModule.setup('docs', app, document);
+}
+
+export function parseOrigins(value: string): string[] {
+  return value
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter((origin) => origin.length > 0);
 }
