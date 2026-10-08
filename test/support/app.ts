@@ -1,18 +1,40 @@
 import type { INestApplication, ModuleMetadata } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Test } from '@nestjs/testing';
 import type { App } from 'supertest/types';
 import { AppModule } from '../../src/app.module';
 import { configureApp } from '../../src/app.setup';
+import { validate } from '../../src/config/env.validation';
+
+export interface TestAppOptions extends Pick<
+  ModuleMetadata,
+  'imports' | 'controllers'
+> {
+  /**
+   * Settings for this app only, layered over process.env and validated the
+   * same way as at startup. ConfigService is replaced rather than process.env
+   * changed, because ConfigModule reads process.env once per module load.
+   */
+  env?: Record<string, string>;
+}
 
 // Builds the real AppModule with the same global wiring as main.ts.
 export async function createTestApp(
-  extra: Pick<ModuleMetadata, 'imports' | 'controllers'> = {},
+  options: TestAppOptions = {},
 ): Promise<INestApplication<App>> {
-  const moduleRef = await Test.createTestingModule({
-    imports: [AppModule, ...(extra.imports ?? [])],
-    controllers: extra.controllers ?? [],
-  }).compile();
+  let builder = Test.createTestingModule({
+    imports: [AppModule, ...(options.imports ?? [])],
+    controllers: options.controllers ?? [],
+  });
 
+  if (options.env) {
+    const config = { ...validate({ ...process.env, ...options.env }) };
+    builder = builder
+      .overrideProvider(ConfigService)
+      .useValue(new ConfigService(config));
+  }
+
+  const moduleRef = await builder.compile();
   const app = moduleRef.createNestApplication<INestApplication<App>>();
   configureApp(app);
   await app.init();
