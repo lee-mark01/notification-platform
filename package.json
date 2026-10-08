@@ -28,7 +28,8 @@
     "migration:revert": "typeorm-ts-node-commonjs migration:revert -d src/database/data-source.ts",
     "migration:show": "typeorm-ts-node-commonjs migration:show -d src/database/data-source.ts",
     "migration:run:prod": "typeorm migration:run -d dist/database/data-source.js",
-    "client:create": "ts-node src/cli/create-api-client.ts"
+    "client:create": "ts-node src/cli/create-api-client.ts",
+    "user:token": "ts-node src/cli/issue-user-token.ts"
   },
   "dependencies": {
     "@aws-sdk/client-sesv2": "^3.1139.0",
@@ -36,6 +37,7 @@
     "@nestjs/common": "^12.0.1",
     "@nestjs/config": "^12.0.1",
     "@nestjs/core": "^12.0.1",
+    "@nestjs/jwt": "^12.0.2",
     "@nestjs/platform-express": "^12.0.1",
     "@nestjs/swagger": "^12.0.2",
     "@nestjs/terminus": "^12.1.0",

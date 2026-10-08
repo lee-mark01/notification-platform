@@ -38,6 +38,10 @@ function setupSwagger(app: NestExpressApplication): void {
       )
       .setVersion('0.1.0')
       .addApiKey({ type: 'apiKey', in: 'header', name: 'X-API-Key' }, 'api-key')
+      .addBearerAuth(
+        { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
+        'user-jwt',
+      )
       .build(),
     { extraModels: [ProblemDetailsDto, FieldErrorDto] },
   );
