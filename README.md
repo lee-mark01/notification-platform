@@ -34,6 +34,8 @@ MySQL은 로컬에 설치된 MySQL과 충돌하지 않도록 호스트 포트 33
 
 `SWAGGER_ENABLED=true`이면 Swagger UI(`/docs`)와 OpenAPI JSON(`/docs-json`)을 제공합니다. 기본값은 `false`이며, `.env.example`에서는 개발용으로 켜 둡니다.
 
+![Swagger 문서: 헬스체크와 템플릿 관리 API, 에러 응답 스키마](docs/images/p0-swagger.png)
+
 ## 에러 응답
 
 헬스체크를 제외한 모든 에러는 [RFC 9457 Problem Details](https://www.rfc-editor.org/rfc/rfc9457) 형식(`application/problem+json`)으로 응답합니다. 클라이언트는 `title`이나 `detail`이 아니라 `type`으로 오류를 구분합니다.
@@ -65,6 +67,10 @@ MySQL은 로컬에 설치된 MySQL과 충돌하지 않도록 호스트 포트 33
 | `about:blank`                           | 상태 코드 그대로 | HTTP 상태 외에 추가 의미가 없는 오류 (예: 없는 경로 404, 잘못된 JSON 400) |
 
 `instance`에는 쿼리 문자열을 제외한 요청 경로가 들어갑니다. 한 번 공개한 `type` URI의 의미는 바꾸지 않습니다.
+
+아래는 실행 중인 API에 없는 템플릿(`GET /admin/templates/999`)을 요청한 실제 응답입니다. 본문은 RFC 9457 형식이고 `Content-Type`은 `application/problem+json`입니다.
+
+![없는 템플릿 조회 시 404 Problem Details 응답과 응답 헤더](docs/images/p0-problem-details.png)
 
 ## 템플릿 API
 
@@ -134,3 +140,9 @@ npm run typecheck
 E2E 테스트는 Testcontainers로 MySQL과 Redis 컨테이너를 띄워 실행합니다. 테스트 파일은 순차 실행(`--runInBand`)되고, 데이터를 쓰는 테스트는 `beforeEach`에서 `resetDatabase()`로 마이그레이션 기록을 제외한 모든 테이블을 비웁니다. 마이그레이션 테스트는 별도 데이터베이스를 사용합니다.
 
 마이그레이션 테스트는 모든 마이그레이션을 실행한 뒤 엔티티와 DB 스키마의 차이가 없는지 확인합니다. 엔티티만 수정하고 마이그레이션을 만들지 않으면 CI가 실패합니다.
+
+## 개발 방식
+
+모든 변경은 이슈 → 브랜치 → PR → CI 통과 → 머지 순서로 진행합니다. `main`은 브랜치 보호로 직접 푸시를 막고, PR이 `check`(lint·타입 체크·포맷·단위/E2E 테스트·빌드)와 `gitleaks`(비밀값 유출 검사)를 모두 통과해야 머지할 수 있습니다. PR 설명에는 변경 이유와 테스트 근거를 적습니다.
+
+![PR의 CI 실행 결과: check와 gitleaks 모두 성공](docs/images/p0-ci-checks.png)
