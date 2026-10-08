@@ -1,5 +1,7 @@
 # notification-platform
 
+[![CI](https://github.com/lee-mark01/notification-platform/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/lee-mark01/notification-platform/actions/workflows/ci.yml)
+
 이메일(AWS SES)과 푸시(FCM)를 하나의 인터페이스로 발송하는 알림 플랫폼입니다.
 재시도, Dead Letter Queue, 멱등성, 웹훅 기반 상태 추적을 갖추는 것을 목표로 합니다.
 
@@ -16,7 +18,7 @@
 
 ## 실행
 
-요구 사항: Node.js 24, Docker
+요구 사항: Node.js 24.15 이상 (`.nvmrc`), Docker
 
 ```bash
 cp .env.example .env
