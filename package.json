@@ -29,7 +29,9 @@
     "migration:show": "typeorm-ts-node-commonjs migration:show -d src/database/data-source.ts",
     "migration:run:prod": "typeorm migration:run -d dist/database/data-source.js",
     "client:create": "ts-node src/cli/create-api-client.ts",
-    "user:token": "ts-node src/cli/issue-user-token.ts"
+    "user:token": "ts-node src/cli/issue-user-token.ts",
+    "demo:config": "node web-push-demo/generate-config.mjs",
+    "demo:serve": "node web-push-demo/serve.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-sesv2": "^3.1139.0",
@@ -45,6 +47,7 @@
     "bullmq": "^6.3.11",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",
+    "firebase-admin": "^14.5.0",
     "handlebars": "^4.7.10",
     "ioredis": "^5.11.1",
     "mysql2": "^3.24.5",

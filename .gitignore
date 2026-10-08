@@ -28,6 +28,8 @@ pnpm-debug.log*
 *.p12
 serviceAccount*.json
 firebase-adminsdk*.json
+# Generated from .env by npm run demo:config
+web-push-demo/config.js
 *-credentials.json
 
 # IDE
