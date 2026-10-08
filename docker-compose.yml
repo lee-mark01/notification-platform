@@ -50,8 +50,9 @@ services:
   # succeeds, because the app itself never runs migrations on boot.
   migrate:
     profiles: ['app']
-    build: .
+    # Reuses the image built for app; building it twice under one name collides.
     image: notification-platform-app
+    pull_policy: never
     env_file: .env
     environment: &container-env
       DB_HOST: mysql
