@@ -23,6 +23,10 @@ export function buildDataSourceOptions(
     password: env.DB_PASSWORD,
     charset: 'utf8mb4',
     timezone: 'Z',
+    // BIGINT ids come back as numbers while they fit in 2^53 and as strings
+    // beyond that, instead of silently losing precision.
+    supportBigNumbers: true,
+    bigNumberStrings: false,
     // Schema changes go through migrations only.
     synchronize: false,
     // Migrations run as a separate deploy step, not on every app boot, so
