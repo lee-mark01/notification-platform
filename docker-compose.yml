@@ -46,22 +46,42 @@ services:
       timeout: 3s
       retries: 20
 
-  app:
-    # Opt-in: `docker compose --profile app up`. By default the app runs on the host.
+  # Runs pending migrations once and exits. The app starts only after it
+  # succeeds, because the app itself never runs migrations on boot.
+  migrate:
     profiles: ['app']
     build: .
+    image: notification-platform-app
     env_file: .env
-    environment:
+    environment: &container-env
       DB_HOST: mysql
       DB_PORT: 3306
       REDIS_HOST: redis
       REDIS_PORT: 6379
       PORT: 3000
-    ports:
-      - '${PORT:-3000}:3000'
+    command:
+      - node
+      - node_modules/typeorm/cli.js
+      - migration:run
+      - -d
+      - dist/database/data-source.js
+    restart: 'no'
     depends_on:
       mysql:
         condition: service_healthy
+
+  app:
+    # Opt-in: `docker compose --profile app up`. By default the app runs on the host.
+    profiles: ['app']
+    build: .
+    image: notification-platform-app
+    env_file: .env
+    environment: *container-env
+    ports:
+      - '${PORT:-3000}:3000'
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
 
