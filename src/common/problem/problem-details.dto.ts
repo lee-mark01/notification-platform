@@ -7,7 +7,7 @@ import {
   getSchemaPath,
 } from '@nestjs/swagger';
 import { PROBLEM_CONTENT_TYPE, type ProblemDetails } from './problem-details';
-import type { ProblemType } from './problem-types';
+import { ProblemTypes, type ProblemType } from './problem-types';
 
 export class FieldErrorDto {
   @ApiProperty({ example: 'recipient.email' })
@@ -43,6 +43,26 @@ export class ProblemDetailsDto implements ProblemDetails {
   errors?: FieldErrorDto[];
 }
 
+// Example body for one problem type. The schema-level examples above are
+// shared by every response, so each documented response carries its own.
+export function problemExample(problem: ProblemType): ProblemDetails {
+  const example: ProblemDetails = {
+    type: problem.type,
+    title: problem.title,
+    status: problem.status,
+  };
+  if (problem.type === ProblemTypes.VALIDATION_FAILED.type) {
+    example.detail = 'One or more fields are invalid.';
+    example.errors = [
+      {
+        field: 'htmlBody',
+        message: 'htmlBody is required for email templates',
+      },
+    ];
+  }
+  return example;
+}
+
 /** Documents an RFC 9457 error response for a given problem type. */
 export function ApiProblemResponse(problem: ProblemType, description?: string) {
   return applyDecorators(
@@ -53,6 +73,7 @@ export function ApiProblemResponse(problem: ProblemType, description?: string) {
       content: {
         [PROBLEM_CONTENT_TYPE]: {
           schema: { $ref: getSchemaPath(ProblemDetailsDto) },
+          example: problemExample(problem),
         },
       },
     }),
