@@ -34,6 +34,9 @@ export class ProblemDetailsFilter implements ExceptionFilter {
       );
     }
 
+    if (exception instanceof ProblemException) {
+      response.set(exception.headers);
+    }
     response.status(problem.status).type(PROBLEM_CONTENT_TYPE).json(problem);
   }
 
