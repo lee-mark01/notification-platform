@@ -30,6 +30,39 @@ npm ci && npm run migration:run && npm run start:dev
 
 MySQL은 로컬에 설치된 MySQL과 충돌하지 않도록 호스트 포트 3307을 기본값으로 사용합니다.
 
+## API 문서
+
+`SWAGGER_ENABLED=true`이면 Swagger UI(`/docs`)와 OpenAPI JSON(`/docs-json`)을 제공합니다. 기본값은 `false`이며, `.env.example`에서는 개발용으로 켜 둡니다.
+
+## 에러 응답
+
+모든 에러는 [RFC 9457 Problem Details](https://www.rfc-editor.org/rfc/rfc9457) 형식(`application/problem+json`)으로 응답합니다. 클라이언트는 `title`이나 `detail`이 아니라 `type`으로 오류를 구분합니다.
+
+```json
+{
+  "type": "/problems/validation-failed",
+  "title": "Request validation failed",
+  "status": 400,
+  "detail": "One or more fields are invalid.",
+  "instance": "/notifications",
+  "errors": [
+    { "field": "recipient.email", "message": "email must be an email" }
+  ]
+}
+```
+
+| type                                    | status           | 의미                                                                      |
+| --------------------------------------- | ---------------- | ------------------------------------------------------------------------- |
+| `/problems/validation-failed`           | 400              | 요청 검증 실패. `errors`에 필드별 오류                                    |
+| `/problems/resource-not-found`          | 404              | 요청한 리소스가 없음                                                      |
+| `/problems/idempotency-key-missing`     | 400              | `Idempotency-Key` 헤더 누락                                               |
+| `/problems/idempotency-key-in-progress` | 409              | 같은 키의 요청이 아직 처리 중                                             |
+| `/problems/idempotency-key-reused`      | 422              | 같은 키가 다른 요청 본문으로 재사용됨                                     |
+| `/problems/internal-error`              | 500              | 서버 내부 오류. 상세 내용은 응답하지 않고 로그에만 남김                   |
+| `about:blank`                           | 상태 코드 그대로 | HTTP 상태 외에 추가 의미가 없는 오류 (예: 없는 경로 404, 잘못된 JSON 400) |
+
+`instance`에는 쿼리 문자열을 제외한 요청 경로가 들어갑니다. 한 번 공개한 `type` URI의 의미는 바꾸지 않습니다.
+
 ## 데이터베이스 마이그레이션
 
 스키마는 마이그레이션으로만 변경합니다. `synchronize`는 꺼져 있고, 앱은 기동할 때 마이그레이션을 실행하지 않습니다. 여러 인스턴스가 동시에 같은 마이그레이션을 실행하지 않도록 배포 단계에서 따로 실행합니다.
