@@ -33,4 +33,17 @@ export default defineConfig(
       ],
     },
   },
+  {
+    // Plain browser and Node scripts for the web push demo, outside tsconfig.
+    files: ['web-push-demo/**/*.{js,mjs}'],
+    extends: [tseslint.configs.disableTypeChecked],
+    languageOptions: {
+      globals: {
+        ...globals.browser,
+        ...globals.serviceworker,
+        ...globals.node,
+        firebase: 'readonly',
+      },
+    },
+  },
 );

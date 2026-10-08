@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Web Push Demo</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        font-family: system-ui, sans-serif;
+      }
+      body {
+        max-width: 40rem;
+        margin: 2rem auto;
+        padding: 0 1rem;
+        line-height: 1.5;
+      }
+      textarea {
+        width: 100%;
+        min-height: 5rem;
+        font-family: ui-monospace, monospace;
+        box-sizing: border-box;
+      }
+      button {
+        margin-top: 0.5rem;
+        padding: 0.5rem 1rem;
+        font-size: 1rem;
+      }
+      #log {
+        margin-top: 1.5rem;
+        padding: 0.75rem;
+        border: 1px solid #8884;
+        border-radius: 0.5rem;
+        white-space: pre-wrap;
+        font-family: ui-monospace, monospace;
+        font-size: 0.875rem;
+        min-height: 4rem;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Web Push Demo</h1>
+    <p>
+      1. 터미널에서 <code>npm run user:token -- &lt;email&gt;</code>로 받은
+      토큰을 붙여넣습니다.<br />
+      2. 버튼을 누르고 알림을 허용하면 이 브라우저의 FCM 토큰이
+      <code>POST /devices</code>로 등록됩니다.<br />
+      3. <code>POST /notifications</code>로 이 사용자에게 push를 보냅니다.
+    </p>
+
+    <label for="jwt">사용자 JWT</label>
+    <textarea id="jwt" placeholder="eyJhbGciOiJIUzI1NiIs..."></textarea>
+    <button id="register" type="button">알림 허용하고 이 브라우저 등록</button>
+
+    <div id="log" aria-live="polite"></div>
+
+    <script src="./config.js"></script>
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>
