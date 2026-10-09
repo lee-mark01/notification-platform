@@ -14,15 +14,11 @@ import { IsDate, IsOptional } from 'class-validator';
 import { Repository } from 'typeorm';
 import { ApiProblemResponse } from '../../common/problem/problem-details.dto';
 import { ProblemTypes } from '../../common/problem/problem-types';
-import { ProblemException } from '../../common/problem/problem.exception';
 import { Notification } from '../../notifications/notification.entity';
 import { NotificationStatus } from '../../notifications/notification.enums';
 import { TemplateChannel } from '../../templates/template.entity';
 import { AdminKeyGuard } from '../admin-key.guard';
-
-const DAY_MS = 24 * 60 * 60 * 1000;
-const DEFAULT_DAYS = 7;
-const MAX_DAYS = 92;
+import { resolvePeriod } from '../period';
 
 // Reached the provider; the base for a read rate.
 const SENT = [
@@ -93,15 +89,7 @@ export class ReadRatesService {
     query: ReadRatesQuery,
     now = new Date(),
   ): Promise<ReadRatesResponse> {
-    const to = query.to ?? now;
-    const from = query.from ?? new Date(to.getTime() - DEFAULT_DAYS * DAY_MS);
-    if (from >= to || to.getTime() - from.getTime() > MAX_DAYS * DAY_MS) {
-      throw new ProblemException(
-        ProblemTypes.VALIDATION_FAILED,
-        `from must be before to, at most ${MAX_DAYS} days apart.`,
-        { errors: [{ field: 'from', message: 'invalid period' }] },
-      );
-    }
+    const { from, to } = resolvePeriod(query, now);
 
     const rows = await this.notifications
       .createQueryBuilder('n')
