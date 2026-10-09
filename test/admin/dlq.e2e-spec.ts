@@ -15,7 +15,7 @@ import { jobIdFor, QueueNames } from '../../src/queue/queue.constants';
 import { Template, TemplateChannel } from '../../src/templates/template.entity';
 import { createTestApp } from '../support/app';
 import { createTestDataSource, resetDatabase } from '../support/database';
-import { getQueue, resetQueues } from '../support/queues';
+import { getQueue, resetQueues, waitForQueues } from '../support/queues';
 import { seedClient, seedEmailTemplate } from '../support/seed';
 import { waitFor } from '../support/wait';
 
@@ -35,6 +35,7 @@ describe('DLQ admin API (e2e)', () => {
     await migrator.destroy();
 
     app = await createTestApp({ env: { WORKERS_ENABLED: 'true' } });
+    await waitForQueues(app);
     dataSource = app.get(DataSource);
     fake = app.get(FakeProvider);
   });

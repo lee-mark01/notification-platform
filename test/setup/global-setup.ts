@@ -61,5 +61,7 @@ export default async function globalSetup(): Promise<void> {
     // Short backoff so retry scenarios finish in milliseconds.
     SEND_MAX_ATTEMPTS: '5',
     RETRY_BASE_DELAY_MS: '10',
+    // Tests call Sweeper.sweep() directly; keep the scheduled one out of the way.
+    SWEEP_INTERVAL_MS: '3600000',
   });
 }

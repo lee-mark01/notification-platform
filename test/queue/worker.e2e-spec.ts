@@ -23,7 +23,7 @@ import { SendProcessor } from '../../src/queue/send.processor';
 import { Template, TemplateChannel } from '../../src/templates/template.entity';
 import { createTestApp } from '../support/app';
 import { createTestDataSource, resetDatabase } from '../support/database';
-import { getQueue, resetQueues } from '../support/queues';
+import { getQueue, resetQueues, waitForQueues } from '../support/queues';
 import {
   seedClient,
   seedEmailTemplate,
@@ -47,6 +47,7 @@ describe('Send workers (e2e)', () => {
     await migrator.destroy();
 
     app = await createTestApp({ env: { WORKERS_ENABLED: 'true' } });
+    await waitForQueues(app);
     dataSource = app.get(DataSource);
     fake = app.get(FakeProvider);
   });
