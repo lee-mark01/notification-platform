@@ -1,0 +1,11 @@
+-> Limit: 51 row(s)  (actual time=1186..1186 rows=51 loops=1)
+    -> Sort: d.n_created_at DESC, d.id DESC, limit input to 51 row(s) per chunk  (actual time=1186..1186 rows=51 loops=1)
+        -> Table scan on <temporary>  (cost=17758..17763 rows=187) (actual time=1186..1186 rows=1042 loops=1)
+            -> Temporary table with deduplication  (cost=17758..17758 rows=187) (actual time=1186..1186 rows=1042 loops=1)
+                -> Inner hash join (t.id = n.template_id)  (cost=17739 rows=187) (actual time=1185..1185 rows=1042 loops=1)
+                    -> Filter: (t.deleted_at is null)  (cost=0.00129 rows=1) (actual time=0.02..0.0229 rows=3 loops=1)
+                        -> Table scan on t  (cost=0.00129 rows=3) (actual time=0.0176..0.0201 rows=3 loops=1)
+                    -> Hash
+                        -> Filter: ((n.`channel` = 'email') and (n.created_at >= TIMESTAMP'2026-10-03 00:00:00') and (n.created_at < TIMESTAMP'2026-10-10 00:00:00'))  (cost=17682 rows=562) (actual time=1173..1185 rows=1042 loops=1)
+                            -> Index lookup on n using ix_notification_status_updated_at (status='FAILED')  (cost=17682 rows=39552) (actual time=0.669..1183 rows=20000 loops=1)
+

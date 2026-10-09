@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="700" viewBox="0 0 1200 700" font-family='"Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif'>
+<rect width="1200" height="700" fill="#FFFFFF"/>
+<text x="48" y="52" font-size="26" font-weight="700" fill="#0F172A" text-anchor="start">알림 100만 건에서 관리자 쿼리 전후 (EXPLAIN ANALYZE)</text>
+<text x="48" y="84" font-size="16" font-weight="400" fill="#475569" text-anchor="start">MySQL 8.4 · 90일치 데이터 중 7일 = 77,825건 · 버퍼 풀을 데운 뒤 측정</text>
+<text x="48" y="128" font-size="16" font-weight="700" fill="#475569" text-anchor="start">쿼리</text>
+<text x="560" y="128" font-size="16" font-weight="700" fill="#B45309" text-anchor="end">전</text>
+<text x="700" y="128" font-size="16" font-weight="700" fill="#0F766E" text-anchor="end">후</text>
+<text x="740" y="128" font-size="16" font-weight="700" fill="#475569" text-anchor="start">바꾼 것</text>
+<rect x="32" y="150" width="1136" height="96" fill="#F1F5F9" rx="8"/>
+<text x="48" y="188" font-size="18" font-weight="700" fill="#0F172A" text-anchor="start">발송 이력 7일, 필터 없음</text>
+<text x="48" y="216" font-size="13" font-weight="400" fill="#475569" text-anchor="start">전 ix_notification_created_channel → 후 ix_notification_created_at</text>
+<text x="560" y="200" font-size="20" font-weight="700" fill="#B45309" text-anchor="end">347 ms</text>
+<text x="700" y="200" font-size="20" font-weight="700" fill="#0F766E" text-anchor="end">0.31 ms</text>
+<text x="740" y="188" font-size="15" font-weight="400" fill="#0F172A" text-anchor="start">join 제거 + (created_at) 인덱스: 역순으로 읽다 51건에서 멈춤</text>
+<text x="740" y="216" font-size="15" font-weight="700" fill="#0F766E" text-anchor="start">약 1,130배</text>
+<text x="48" y="284" font-size="18" font-weight="700" fill="#0F172A" text-anchor="start">발송 이력 7일, email + FAILED</text>
+<text x="48" y="312" font-size="13" font-weight="400" fill="#475569" text-anchor="start">전 ix_notification_status_updated_at → 후 ix_notification_created_at</text>
+<text x="560" y="296" font-size="20" font-weight="700" fill="#B45309" text-anchor="end">1186 ms</text>
+<text x="700" y="296" font-size="20" font-weight="700" fill="#0F766E" text-anchor="end">7.4 ms</text>
+<text x="740" y="284" font-size="15" font-weight="400" fill="#0F172A" text-anchor="start">같은 인덱스를 역순으로 읽으며 거름: 읽는 행 20,000 → 3,732</text>
+<text x="740" y="312" font-size="15" font-weight="700" fill="#0F766E" text-anchor="start">약 160배</text>
+<rect x="32" y="342" width="1136" height="96" fill="#F1F5F9" rx="8"/>
+<text x="48" y="380" font-size="18" font-weight="700" fill="#0F172A" text-anchor="start">발송 이력, 사용자 1명 30일</text>
+<text x="48" y="408" font-size="13" font-weight="400" fill="#475569" text-anchor="start">전 ix_notification_user_created → 후 ix_notification_user_created</text>
+<text x="560" y="392" font-size="20" font-weight="700" fill="#B45309" text-anchor="end">0.16 ms</text>
+<text x="700" y="392" font-size="20" font-weight="700" fill="#0F766E" text-anchor="end">0.10 ms</text>
+<text x="740" y="380" font-size="15" font-weight="400" fill="#0F172A" text-anchor="start">이미 (user_id, created_at) 인덱스 사용, 그대로</text>
+<text x="740" y="408" font-size="15" font-weight="700" fill="#475569" text-anchor="start">변화 없음 (둘 다 1ms 미만)</text>
+<text x="48" y="476" font-size="18" font-weight="700" fill="#0F172A" text-anchor="start">통계 요약 7일</text>
+<text x="48" y="504" font-size="13" font-weight="400" fill="#475569" text-anchor="start">전 ix_notification_created_channel → 후 ix_notification_stats</text>
+<text x="560" y="488" font-size="20" font-weight="700" fill="#B45309" text-anchor="end">136 ms</text>
+<text x="700" y="488" font-size="20" font-weight="700" fill="#0F766E" text-anchor="end">56.2 ms</text>
+<text x="740" y="476" font-size="15" font-weight="400" fill="#0F172A" text-anchor="start">통계용 커버링 인덱스: 행을 읽지 않음</text>
+<text x="740" y="504" font-size="15" font-weight="700" fill="#0F766E" text-anchor="start">약 2배</text>
+<rect x="32" y="534" width="1136" height="96" fill="#F1F5F9" rx="8"/>
+<text x="48" y="572" font-size="18" font-weight="700" fill="#0F172A" text-anchor="start">템플릿별 읽음률 7일</text>
+<text x="48" y="600" font-size="13" font-weight="400" fill="#475569" text-anchor="start">전 fk_notification_template → 후 ix_notification_stats</text>
+<text x="560" y="584" font-size="20" font-weight="700" fill="#B45309" text-anchor="end">4290 ms</text>
+<text x="700" y="584" font-size="20" font-weight="700" fill="#0F766E" text-anchor="end">49.8 ms</text>
+<text x="740" y="572" font-size="15" font-weight="400" fill="#0F172A" text-anchor="start">먼저 집계 후 키 매핑: 읽는 행 999,999 → 77,825, 커버링</text>
+<text x="740" y="600" font-size="15" font-weight="700" fill="#0F766E" text-anchor="start">약 86배</text>
+<text x="48" y="672" font-size="14" font-weight="400" fill="#475569" text-anchor="start">재현: load/explain/run.sh setup → measure · 원자료 load/explain/results/</text>
+</svg>

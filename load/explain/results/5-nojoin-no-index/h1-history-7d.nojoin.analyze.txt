@@ -1,0 +1,4 @@
+-> Limit: 51 row(s)  (cost=92461 rows=51) (actual time=107..107 rows=51 loops=1)
+    -> Sort row IDs: n.created_at DESC, n.id DESC, limit input to 51 row(s) per chunk  (cost=92461 rows=140476) (actual time=107..107 rows=51 loops=1)
+        -> Index range scan on n using ix_notification_created_channel over ('2026-10-03 00:00:00.000' <= created_at < '2026-10-10 00:00:00.000'), with index condition: ((n.created_at >= TIMESTAMP'2026-10-03 00:00:00') and (n.created_at < TIMESTAMP'2026-10-10 00:00:00'))  (cost=92461 rows=140476) (actual time=12.4..99.8 rows=77825 loops=1)
+

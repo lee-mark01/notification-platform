@@ -1,0 +1,1 @@
+SELECT `n`.`status`, `n`.`channel`, `n`.`category`, COUNT(*), SUM(`n`.`read_at` IS NOT NULL) FROM `notification` `n` WHERE `n`.`created_at` >= '2026-10-03 00:00:00' AND `n`.`created_at` < '2026-10-10 00:00:00' GROUP BY `n`.`status`, `n`.`channel`, `n`.`category`;

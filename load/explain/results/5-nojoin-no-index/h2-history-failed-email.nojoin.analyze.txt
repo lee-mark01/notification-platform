@@ -1,0 +1,5 @@
+-> Limit: 51 row(s)  (cost=13350 rows=51) (actual time=838..838 rows=51 loops=1)
+    -> Sort row IDs: n.created_at DESC, n.id DESC, limit input to 51 row(s) per chunk  (cost=13350 rows=39552) (actual time=838..838 rows=51 loops=1)
+        -> Filter: ((n.`channel` = 'email') and (n.created_at >= TIMESTAMP'2026-10-03 00:00:00') and (n.created_at < TIMESTAMP'2026-10-10 00:00:00'))  (cost=13350 rows=39552) (actual time=833..837 rows=1042 loops=1)
+            -> Index lookup on n using ix_notification_status_updated_at (status='FAILED')  (cost=13350 rows=39552) (actual time=0.0162..830 rows=20000 loops=1)
+
