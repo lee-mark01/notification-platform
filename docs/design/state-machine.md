@@ -93,7 +93,9 @@ stateDiagram-v2
   - T3(SENT)는 `status = SENDING`만 본다. lease를 잃은 Worker라도 발송이 실제로 성공했다면 "보냈다"는 기록이 사실이기 때문이다.
   - T4·T6(RETRYING·FAILED)은 `attempt_count = 내 시도 번호`까지 본다(펜싱). lease를 잃은 옛 Worker의 실패가, 재점유한 새 Worker의 발송을 실패로 덮어쓰지 않게 한다.
 - Worker가 발송 중 죽으면(`kill -9`) BullMQ가 stalled job으로 감지해 다시 실행한다. 그때 알림은 SENDING이므로 T2'로만 다시 점유할 수 있고, lease가 남아 있으면 영향 행 0이다.
-  - 이때 Worker는 job을 성공으로 끝내지 않고 **일시 오류로 실패**시켜, BullMQ 백오프 후 다시 시도하게 한다. lease가 지나면 T2'가 성공한다.
+  - 이때 Worker는 job을 성공으로 끝내지 않는다. 아래처럼 lease가 끝날 때까지 미룬 뒤 다시 시도하고, lease가 지나면 T2'가 성공한다.
+- lease가 살아 있으면 job을 실패시키지 않고 lease가 끝나는 시각(+1초)으로 미룬다(`job.moveToDelayed` + `DelayedError`). 실패로 처리하면 확인할 때마다 재시도 횟수를 써 버려, 죽은 Worker의 건이 DEAD가 될 수 있기 때문이다.
+- BullMQ stall 설정과의 관계: `lockDuration` 30초(실행 중에는 15초마다 갱신), `stalledInterval` 30초, `maxStalledCount` 1. Worker가 죽으면 최대 약 60초 안에 job이 대기열로 돌아오고, lease(60초)가 남았으면 위처럼 미뤄진다. 같은 job이 두 번 stall되면 실패로 끝나고, 그 알림은 Sweeper가 10분 뒤 다시 넣는다.
 - 죽은 Worker가 실제로 Provider 호출까지 끝냈다면, 재점유 후 같은 알림이 한 번 더 발송된다. SES·FCM에는 멱등 키가 없어 이 중복은 막을 수 없다(at-least-once, ADR-002). 장애 시나리오 6에서 이 중복 횟수를 측정해 기록한다.
 
 ### 재시도와 DLQ (T4, T5)
