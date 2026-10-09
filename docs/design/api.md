@@ -166,7 +166,7 @@ Location: /notifications/1024
 - JWT는 HS256만 받고 `exp`가 반드시 있어야 하며 `sub`는 존재하는 사용자 id여야 한다. 로컬·데모용 발급: `npm run user:token -- <email>`
 - 실패: 400, 401 (`WWW-Authenticate: Bearer`).
 
-### `GET /me/notifications` — 내 알림함 (Phase 4)
+### `GET /me/notifications` — 내 알림함 (구현됨)
 
 쿼리: `limit`(1~100, 기본 20), `cursor`, `unread`(`true`면 안읽음만).
 
@@ -188,18 +188,19 @@ Location: /notifications/1024
 
 - 최신순. 커서는 `(created_at, id)`를 담은 불투명 값이다(동시각 정렬을 id로 보장).
 - 본문은 `rendered_title`, `rendered_body`(발송 당시 내용)를 보여준다.
+- 알림함에는 실제로 발송된 알림(`SENT`, `DELIVERED`)만 보인다. 수신거부로 막혔거나 아직 큐에 있는 알림은 사용자에게 간 적이 없기 때문이다. 읽음 처리 대상도 같다.
 
-### `GET /me/notifications/unread-count` (Phase 4)
+### `GET /me/notifications/unread-count` (구현됨)
 
 `{ "count": 3 }`
 
-### `PATCH /me/notifications/{id}/read`, `PATCH /me/notifications/{id}/unread` (Phase 4)
+### `PATCH /me/notifications/{id}/read`, `PATCH /me/notifications/{id}/unread` (구현됨)
 
 - 응답 200 `{ "id": 1024, "readAt": "..." }` (`unread`면 `readAt: null`).
 - 멱등: 이미 읽은 알림에 `read`를 다시 보내도 200이고 `readAt`은 처음 값 그대로다(장애 시나리오 12).
 - 남의 알림이면 404.
 
-### `POST /me/notifications/read-all` (Phase 4)
+### `POST /me/notifications/read-all` (구현됨)
 
 `{ "updated": 3 }` — 안읽음만 갱신한 개수.
 
