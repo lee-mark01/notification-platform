@@ -1,6 +1,7 @@
 import { DataSource } from 'typeorm';
 import { ApiClient } from '../../src/clients/api-client.entity';
 import { generateApiKey, hashApiKey } from '../../src/clients/api-key';
+import { ApiKey } from '../../src/clients/api-key.entity';
 import { Template, TemplateChannel } from '../../src/templates/template.entity';
 import { AppUser } from '../../src/users/app-user.entity';
 
@@ -9,9 +10,10 @@ export async function seedClient(
   name = 'test-client',
 ): Promise<{ client: ApiClient; apiKey: string }> {
   const apiKey = generateApiKey();
-  const client = await dataSource
-    .getRepository(ApiClient)
-    .save({ name, apiKeyHash: hashApiKey(apiKey) });
+  const client = await dataSource.getRepository(ApiClient).save({ name });
+  await dataSource
+    .getRepository(ApiKey)
+    .save({ clientId: client.id, keyHash: hashApiKey(apiKey) });
   return { client, apiKey };
 }
 
