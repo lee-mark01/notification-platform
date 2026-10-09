@@ -45,6 +45,9 @@ import { SesProvider } from './ses/ses.provider';
           // Present: validation requires them when EMAIL_PROVIDER is ses.
           region: config.get('AWS_REGION', { infer: true }),
           fromAddress: config.get('SES_FROM_ADDRESS', { infer: true }),
+          configurationSet: config.get('SES_CONFIGURATION_SET', {
+            infer: true,
+          }),
           credentials:
             accessKeyId && secretAccessKey
               ? { accessKeyId, secretAccessKey }

@@ -12,6 +12,9 @@ import { classifySesError } from './ses-errors';
 export interface SesSettings {
   region: string;
   fromAddress: string;
+  // Publishes delivery, bounce, complaint and open events to SNS, which
+  // reaches POST /webhooks/ses. Omitted, SES sends without events.
+  configurationSet?: string;
   // Omitted in deployments that use an IAM role; the SDK's default chain
   // then finds credentials.
   credentials?: { accessKeyId: string; secretAccessKey: string };
@@ -59,6 +62,9 @@ export class SesProvider implements NotificationProvider {
     const utf8 = (data: string) => ({ Data: data, Charset: 'UTF-8' });
     return new SendEmailCommand({
       FromEmailAddress: this.settings.fromAddress,
+      ...(this.settings.configurationSet && {
+        ConfigurationSetName: this.settings.configurationSet,
+      }),
       Destination: { ToAddresses: [message.to] },
       Content: {
         Simple: {

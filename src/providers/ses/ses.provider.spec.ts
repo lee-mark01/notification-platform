@@ -123,6 +123,18 @@ describe('SesProvider', () => {
     });
   });
 
+  it('names the configuration set when one is configured', async () => {
+    const withSet = new SesProvider(
+      { ...settings, configurationSet: 'events' },
+      client,
+    );
+    send.mockResolvedValue({ MessageId: 'ses-2', $metadata: {} });
+
+    await withSet.send(email);
+
+    expect(sentCommand().input.ConfigurationSetName).toBe('events');
+  });
+
   it('omits the text part when there is none', async () => {
     send.mockResolvedValue({ MessageId: 'ses-1', $metadata: {} });
 
