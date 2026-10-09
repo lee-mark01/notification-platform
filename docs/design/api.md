@@ -203,13 +203,14 @@ Location: /notifications/1024
 
 `{ "updated": 3 }` — 안읽음만 갱신한 개수.
 
-### `PUT /me/marketing-consent` (Phase 3)
+### `PUT /me/marketing-consent` (구현됨)
 
 ```json
 { "optIn": false }
 ```
 
-- 응답 200 `{ "optIn": false, "updatedAt": "..." }`. 같은 값으로 다시 보내도 결과가 같다.
+- 응답 200 `{ "optIn": false, "updatedAt": "..." }`. 같은 값으로 다시 보내도 결과가 같다(값이 바뀔 때만 UPDATE하므로 동의 시각·`updatedAt`도 그대로).
+- 동의는 발송 직전에 확인한다. 접수 뒤에 철회하면 아직 안 보낸 마케팅 알림은 `SUPPRESSED`가 된다.
 - PLAN 초안의 `POST·DELETE /me/subscriptions/marketing` 대신, 원하는 최종 상태를 보내는 `PUT` 하나로 정했다. 동의·철회가 한 리소스의 두 값이라 멱등한 `PUT`이 더 자연스럽다.
 
 ## 웹훅

@@ -240,7 +240,7 @@ erDiagram
 
 - `uq_delivery_attempt_notification_attempt (notification_id, attempt_no)`: 같은 시도가 두 번 기록되지 않게 막고, 알림별 시도 이력을 순서대로 읽는다.
 
-### suppression (Phase 3·4)
+### suppression (Phase 3, 반송·신고 자동 등록은 Phase 4)
 
 발송을 막는 이메일 주소. 반송·스팸 신고·관리자 등록으로 생긴다. 마케팅 수신 동의는 여기가 아니라 `app_user.marketing_opt_in`이다.
 
@@ -253,6 +253,7 @@ erDiagram
 | suppressed_at | DATETIME(3)        |                                                           |
 | released_at   | DATETIME(3) NULL   | 해제 시각. NULL이면 차단 중                               |
 
+- 이미 차단 중인 주소를 다시 등록하면 처음 사유를 유지한다(재등록은 해제된 행만 갱신).
 - `uq_suppression_email (email)`: 주소당 1행. 해제했다가 다시 차단되면 같은 행을 갱신한다(`released_at = NULL`, reason 갱신). 이력이 필요해지면 별도 로그 테이블을 둔다.
 
 ### device_token (Phase 2)

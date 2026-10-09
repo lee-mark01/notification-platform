@@ -133,7 +133,10 @@ npm run client:create -- my-service   # API 키 발급 (한 번만 표시)
   - BullMQ job scheduler로 30초마다, 인스턴스가 여러 개여도 한 번만 돕니다.
   - 오래 머문 `QUEUED`·`RETRYING`·`SENDING` 중 job이 사라진 것도 다시 넣습니다.
   - 장애 시나리오 2: Redis가 꺼진 상태에서 접수 → `PENDING` → 복구 후 sweep → `SENT` (E2E)
-- 수신거부 검사는 Phase 3에서 이어서 추가합니다.
+- 발송 직전에 수신거부 목록과 마케팅 동의를 확인합니다. 접수와 발송 사이에 사용자가 동의를 철회해도 막힙니다. 막힌 알림은 `SUPPRESSED`가 되고 Provider를 부르지 않습니다.
+  - 장애 시나리오 8: 수신거부 주소 → `SUPPRESSED`, 시도 기록 0행 (E2E)
+  - 장애 시나리오 4: Provider가 주소 자체를 거부 → 재시도 없이 `FAILED` + 수신거부 등록, 다음 알림은 Provider 전에 차단 (E2E)
+  - 마케팅은 사전 동의한 사용자에게만 보냅니다(`PUT /me/marketing-consent`). 사용자 정보가 없는 주소로 가는 마케팅은 동의를 확인할 수 없어 보내지 않습니다.
 
 ## 사용자 API
 
