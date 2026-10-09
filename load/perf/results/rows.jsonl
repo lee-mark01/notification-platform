@@ -1,0 +1,17 @@
+{"kind":"worker","concurrency":1,"pool":10,"jobs":2000,"seconds":232.7,"perSecond":9,"jobP50":101,"jobP95":102,"ideal":10,"efficiency":0.9}
+{"kind":"worker","concurrency":5,"pool":10,"jobs":2000,"seconds":47,"perSecond":43,"jobP50":101,"jobP95":102,"ideal":50,"efficiency":0.86}
+{"kind":"worker","concurrency":10,"pool":10,"jobs":2000,"seconds":24.1,"perSecond":83,"jobP50":101,"jobP95":102,"ideal":99,"efficiency":0.84}
+{"kind":"worker","concurrency":20,"pool":10,"jobs":2000,"seconds":13.5,"perSecond":148,"jobP50":103,"jobP95":112,"ideal":192,"efficiency":0.77}
+{"kind":"worker","concurrency":50,"pool":10,"jobs":2000,"seconds":9.3,"perSecond":214,"jobP50":117,"jobP95":159,"ideal":424,"efficiency":0.5}
+{"kind":"worker","concurrency":100,"pool":10,"jobs":2000,"seconds":7.2,"perSecond":279,"jobP50":135,"jobP95":182,"ideal":735,"efficiency":0.38}
+{"kind":"worker","concurrency":100,"pool":50,"jobs":2000,"seconds":3.8,"perSecond":531,"jobP50":109,"jobP95":129,"ideal":877,"efficiency":0.61}
+{"kind":"worker","concurrency":100,"pool":100,"jobs":2000,"seconds":3.9,"perSecond":518,"jobP50":108,"jobP95":126,"ideal":877,"efficiency":0.59}
+{"kind":"worker","concurrency":50,"pool":10,"jobs":5000,"seconds":20.5,"perSecond":244,"jobP50":118,"jobP95":137,"ideal":420,"efficiency":0.58}
+{"kind":"worker","concurrency":50,"pool":50,"jobs":5000,"seconds":12.5,"perSecond":401,"jobP50":101,"jobP95":108,"ideal":490,"efficiency":0.82}
+{"kind":"worker","concurrency":100,"pool":10,"jobs":5000,"seconds":14.9,"perSecond":335,"jobP50":133,"jobP95":173,"ideal":746,"efficiency":0.45}
+{"kind":"worker","concurrency":100,"pool":50,"jobs":5000,"seconds":8.9,"perSecond":562,"jobP50":107,"jobP95":126,"ideal":893,"efficiency":0.63}
+{"kind":"worker","concurrency":100,"pool":100,"jobs":5000,"seconds":8.7,"perSecond":573,"jobP50":107,"jobP95":123,"ideal":885,"efficiency":0.65}
+{"kind":"worker","concurrency":30,"pool":10,"jobs":5000,"seconds":25.4,"perSecond":197,"jobP50":108,"jobP95":120,"ideal":275,"efficiency":0.72}
+{"kind":"worker","concurrency":30,"pool":30,"jobs":5000,"seconds":20.6,"perSecond":243,"jobP50":101,"jobP95":102,"ideal":297,"efficiency":0.82}
+{"kind":"intake","vus":10,"rps":357,"p50":25.3,"p95":35.2,"p99":50,"ok":1}
+{"kind":"intake","vus":50,"rps":431,"p50":105.1,"p95":145.4,"p99":324.2,"ok":1}

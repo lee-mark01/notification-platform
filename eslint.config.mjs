@@ -51,4 +51,12 @@ export default defineConfig(
     files: ['load/**/*.mjs'],
     extends: [tseslint.configs.disableTypeChecked],
   },
+  {
+    // k6 scripts: run by k6, not Node.
+    files: ['load/**/*.js'],
+    extends: [tseslint.configs.disableTypeChecked],
+    languageOptions: {
+      globals: { __ENV: 'readonly', __VU: 'readonly', __ITER: 'readonly' },
+    },
+  },
 );
