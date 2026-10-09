@@ -26,6 +26,33 @@ export function decodeIdCursor(cursor: string): { id: number } {
   );
 }
 
+/** A position in a newest-first list: created time, then id for ties. */
+export function decodeTimeIdCursor(cursor: string): { at: Date; id: number } {
+  try {
+    const parsed: unknown = JSON.parse(
+      Buffer.from(cursor, 'base64url').toString('utf8'),
+    );
+    const { at, id } = (parsed ?? {}) as { at?: unknown; id?: unknown };
+    const date = typeof at === 'string' ? new Date(at) : null;
+    if (
+      date &&
+      !Number.isNaN(date.getTime()) &&
+      typeof id === 'number' &&
+      Number.isSafeInteger(id) &&
+      id > 0
+    ) {
+      return { at: date, id };
+    }
+  } catch {
+    // Fall through to the validation error below.
+  }
+  throw new ProblemException(
+    ProblemTypes.VALIDATION_FAILED,
+    'The cursor is not valid.',
+    { errors: [{ field: 'cursor', message: 'cursor is malformed' }] },
+  );
+}
+
 export interface Page<T> {
   items: T[];
   nextCursor: string | null;
