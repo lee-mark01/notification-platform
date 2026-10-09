@@ -82,6 +82,11 @@ export class EnvironmentVariables {
   @MinLength(32)
   JWT_SECRET: string;
 
+  // Shared key for /admin APIs (X-Admin-Key), compared in constant time.
+  @IsString()
+  @MinLength(32)
+  ADMIN_API_KEY: string;
+
   // Lets an instance serve only the API. Tests that check the QUEUED state
   // turn workers off so a job is not picked up mid-assertion.
   @Transform(({ obj }: { obj: Record<string, unknown> }) =>
