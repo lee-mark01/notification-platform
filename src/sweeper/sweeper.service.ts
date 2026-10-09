@@ -9,6 +9,11 @@ import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { type Queue, Worker } from 'bullmq';
 import { In, Raw, Repository } from 'typeorm';
+import { BatchesService } from '../batches/batches.service';
+import {
+  BatchStatus,
+  NotificationBatch,
+} from '../batches/notification-batch.entity';
 import type { EnvironmentVariables } from '../config/env.validation';
 import { Dispatcher } from '../dispatch/dispatcher.service';
 import { Notification } from '../notifications/notification.entity';
@@ -20,6 +25,8 @@ const SCHEDULER_ID = 'sweep';
 // Rows checked per status group per run; the oldest first, so a backlog is
 // worked through over several runs instead of in one long query.
 export const SWEEP_BATCH = 500;
+// Batches resumed per run; each one re-adds up to all of its rows.
+const BATCHES_PER_SWEEP = 10;
 
 // Statuses that should always have a live job; past the stuck threshold the
 // job may be gone (Redis data loss, a redrive that could not re-add it, a
@@ -65,6 +72,9 @@ export class Sweeper
     private readonly dispatcher: Dispatcher,
     @InjectQueue(QueueNames.Maintenance) private readonly maintenance: Queue,
     private readonly sesEvents: SesEventProcessor,
+    @InjectRepository(NotificationBatch)
+    private readonly batchRows: Repository<NotificationBatch>,
+    private readonly batches: BatchesService,
   ) {}
 
   onApplicationBootstrap(): void {
@@ -115,6 +125,12 @@ export class Sweeper
     },
   ): Promise<SweepResult> {
     const result: SweepResult = { checked: 0, added: 0, stoppedEarly: false };
+    // First, so a resumed batch's rows are QUEUED in bulk instead of checked
+    // one by one below.
+    if (!(await this.resumeBatches(options.pendingAfterMs))) {
+      result.stoppedEarly = true;
+      return this.report(result);
+    }
     const groups: [NotificationStatus[], number][] = [
       [[NotificationStatus.Pending], options.pendingAfterMs],
       [IN_PROGRESS, options.stuckAfterMs],
@@ -142,6 +158,25 @@ export class Sweeper
     return this.report(result);
   }
 
+  // A batch whose enqueuing stopped part way: the request's process died or
+  // Redis went away. Returns false if Redis is still unreachable.
+  private async resumeBatches(afterMs: number): Promise<boolean> {
+    const stalled = await this.batchRows.find({
+      select: { id: true },
+      where: {
+        status: In([BatchStatus.Accepted, BatchStatus.Enqueuing]),
+        updatedAt: olderThan(afterMs),
+      },
+      order: { updatedAt: 'ASC' },
+      take: BATCHES_PER_SWEEP,
+    });
+    for (const { id } of stalled) {
+      this.logger.log(`Resuming batch ${id}`);
+      if (!(await this.batches.enqueue(id))) return false;
+    }
+    return true;
+  }
+
   // Uses ix_notification_status_updated_at. Compared on the database clock,
   // the same clock that wrote updated_at.
   private stale(
@@ -152,11 +187,7 @@ export class Sweeper
       select: { id: true, channel: true, category: true, status: true },
       where: {
         status: In(statuses),
-        updatedAt: Raw(
-          (column) =>
-            `${column} < CURRENT_TIMESTAMP(3) - INTERVAL :micros MICROSECOND`,
-          { micros: afterMs * 1000 },
-        ),
+        updatedAt: olderThan(afterMs),
       },
       order: { updatedAt: 'ASC' },
       take: SWEEP_BATCH,
@@ -171,4 +202,12 @@ export class Sweeper
     }
     return result;
   }
+}
+
+function olderThan(ms: number) {
+  return Raw(
+    (column) =>
+      `${column} < CURRENT_TIMESTAMP(3) - INTERVAL :micros MICROSECOND`,
+    { micros: ms * 1000 },
+  );
 }

@@ -36,14 +36,30 @@ export function missingVariables(
   );
 }
 
+type Compiled = (variables: TemplateVariables) => string;
+
+// Compiling costs far more than rendering: a 10,000-recipient batch spent
+// most of its intake time compiling the same three sources. Keyed by source,
+// so an edited template is a new entry; cleared when full rather than LRU,
+// since the number of live templates is small.
+const MAX_COMPILED = 500;
+const compiled = new Map<string, Compiled>();
+
 // strict: a placeholder without a value throws instead of rendering empty.
 // HTML bodies are escaped; subjects, plain text, and push text are not HTML.
 function render(source: string, variables: TemplateVariables, html: boolean) {
-  return Handlebars.compile(source, {
-    strict: true,
-    knownHelpersOnly: true,
-    noEscape: !html,
-  })(variables);
+  const key = `${html ? 'h' : 't'}:${source}`;
+  let fn = compiled.get(key);
+  if (!fn) {
+    if (compiled.size >= MAX_COMPILED) compiled.clear();
+    fn = Handlebars.compile<TemplateVariables>(source, {
+      strict: true,
+      knownHelpersOnly: true,
+      noEscape: !html,
+    });
+    compiled.set(key, fn);
+  }
+  return fn(variables);
 }
 
 /**

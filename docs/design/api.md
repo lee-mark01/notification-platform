@@ -123,7 +123,7 @@ Location: /notifications/1024
 
 실패: 401, 404 `resource-not-found`.
 
-### `POST /notification-batches` — 대량 발송 접수 (Phase 5)
+### `POST /notification-batches` — 대량 발송 접수 (구현됨)
 
 ```json
 {
@@ -137,20 +137,27 @@ Location: /notifications/1024
 }
 ```
 
-- `Idempotency-Key` 필수. 수신자 최대 10,000명.
-- 응답 202 `{ "batchId": 7, "totalCount": 2 }` + `Location: /notification-batches/7`.
-- 실패: 단건과 같고, 수신자 수 초과는 400 `validation-failed`.
+- `Idempotency-Key` 필수. 수신자 1~10,000명. 수신자 규칙은 단건과 같다(푸시는 `userId` 필수, 이메일은 `email` 또는 `userId`).
+- 전부 아니면 전무: 수신자 하나라도 쓸 수 없으면 아무것도 접수하지 않는다. 키 하나가 항상 배치 하나 전체를 뜻하게 하기 위해서다. 오류는 `recipients[3].userId`처럼 위치로 알려 주고 최대 100개까지 담는다.
+- 응답 202 `{ "batchId": 7, "totalCount": 2 }` + `Location: /notification-batches/7`. 큐 등록은 응답 뒤에 진행되므로 진행 상황은 GET으로 본다.
+- 실패: 400 `validation-failed`(수신자 수, 수신자 형식), 422 `template-unusable`(템플릿 없음·채널 불일치), 422 `recipient-unusable`(없는 사용자, 필수 변수 누락, 제목 길이 초과), 409·422 멱등 키.
 
-### `GET /notification-batches/{id}` — 배치 진행 상황 (Phase 5)
+### `GET /notification-batches/{id}` — 배치 진행 상황 (구현됨)
 
 ```json
 {
   "id": 7,
   "status": "ENQUEUED",
+  "channel": "email",
+  "category": "marketing",
   "totalCount": 10000,
-  "byStatus": { "SENT": 9800, "QUEUED": 150, "FAILED": 50 }
+  "byStatus": { "SENT": 9800, "QUEUED": 150, "FAILED": 50 },
+  "createdAt": "..."
 }
 ```
+
+- `status`는 큐 등록 진행이다. 발송 결과는 `byStatus`(알림 상태별 건수, 0건인 상태는 생략)로 본다.
+- 실패: 401, 404 `resource-not-found`(다른 클라이언트의 배치 포함).
 
 ## 사용자 API
 

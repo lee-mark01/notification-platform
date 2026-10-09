@@ -10,10 +10,7 @@ import {
   type FieldError,
   ProblemException,
 } from '../common/problem/problem.exception';
-import {
-  missingVariables,
-  renderTemplate,
-} from '../templates/rendering/template-renderer';
+import { missingVariables } from '../templates/rendering/template-renderer';
 import { Template, TemplateChannel } from '../templates/template.entity';
 import { TemplatesService } from '../templates/templates.service';
 import { AppUser } from '../users/app-user.entity';
@@ -25,9 +22,9 @@ import {
 } from './dto/notification.response';
 import { Notification } from './notification.entity';
 import { NotificationStatus } from './notification.enums';
+import { MAX_TITLE_LENGTH, renderedFields } from './rendered-fields';
 
 const MAX_IDEMPOTENCY_KEY_LENGTH = 255;
-const MAX_TITLE_LENGTH = 255;
 
 export interface AcceptResult {
   status: number;
@@ -39,6 +36,7 @@ type PreparedNotification = Omit<
   Notification,
   | 'id'
   | 'client'
+  | 'batch'
   | 'user'
   | 'template'
   | 'createdAt'
@@ -155,12 +153,8 @@ export class NotificationsService {
     const variables = dto.variables ?? {};
     const recipient = await this.resolveRecipient(dto);
 
-    const rendered = renderTemplate(template, variables);
-    const title =
-      rendered.channel === TemplateChannel.Email
-        ? rendered.subject
-        : rendered.title;
-    if (title.length > MAX_TITLE_LENGTH) {
+    const fields = renderedFields(template, variables);
+    if (!fields) {
       throw templateUnusable([
         {
           field: 'variables',
@@ -180,15 +174,7 @@ export class NotificationsService {
       status: NotificationStatus.Pending,
       recipientEmail: recipient.email,
       variables,
-      renderedTitle: title,
-      renderedBody:
-        rendered.channel === TemplateChannel.Email
-          ? rendered.html
-          : rendered.body,
-      renderedText:
-        rendered.channel === TemplateChannel.Email ? rendered.text : null,
-      renderedData:
-        rendered.channel === TemplateChannel.Push ? rendered.data : null,
+      ...fields,
       leaseUntil: null,
       providerMessageId: null,
       lastErrorCode: null,
@@ -280,7 +266,7 @@ export function parseIdempotencyKey(header: string | undefined): string {
   return header;
 }
 
-function templateUnusable(errors: FieldError[]): ProblemException {
+export function templateUnusable(errors: FieldError[]): ProblemException {
   return new ProblemException(
     ProblemTypes.TEMPLATE_UNUSABLE,
     'The template cannot be used with this request.',
@@ -288,7 +274,10 @@ function templateUnusable(errors: FieldError[]): ProblemException {
   );
 }
 
-function validationFailed(field: string, message: string): ProblemException {
+export function validationFailed(
+  field: string,
+  message: string,
+): ProblemException {
   return new ProblemException(
     ProblemTypes.VALIDATION_FAILED,
     'One or more fields are invalid.',

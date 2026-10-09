@@ -4,6 +4,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { EnvironmentVariables, validate } from './config/env.validation';
 import { buildDataSourceOptions } from './database/database.options';
 import { AdminModule } from './admin/admin.module';
+import { BatchesModule } from './batches/batches.module';
 import { DevicesModule } from './devices/devices.module';
 import { HealthModule } from './health/health.module';
 import { InboxModule } from './inbox/inbox.module';
@@ -39,6 +40,7 @@ import { TemplatesModule } from './templates/templates.module';
     HealthModule,
     TemplatesModule,
     NotificationsModule,
+    BatchesModule,
     DevicesModule,
     MeModule,
     InboxModule,
