@@ -4,7 +4,9 @@ import { setTimeout as sleep } from 'node:timers/promises';
 // work done asynchronously by queue workers.
 export async function waitFor<T>(
   check: () => Promise<T | undefined>,
-  { timeoutMs = 5_000, intervalMs = 50 } = {},
+  // Generous for CI: a fresh app's first job also pays for first queries and
+  // loading BullMQ's Lua scripts.
+  { timeoutMs = 10_000, intervalMs = 50 } = {},
 ): Promise<T> {
   const deadline = Date.now() + timeoutMs;
   for (;;) {

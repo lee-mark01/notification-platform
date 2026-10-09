@@ -152,13 +152,17 @@ describe('Scenario 9: unregistered FCM tokens through the worker (e2e)', () => {
     ).toBe(1);
     expect(fcmCalls).toHaveLength(1);
     // FAILED is written before BullMQ finishes the job; wait for that.
-    const job = await waitFor(async () => {
+    await waitFor(async () => {
       const found = await getQueue(app, QueueNames.PushTransactional).getJob(
         jobIdFor(id),
       );
-      return (await found?.getState()) === 'failed' ? found : undefined;
+      return (await found?.getState()) === 'failed' ? true : undefined;
     });
-    expect(job?.attemptsMade).toBe(1);
+    // Read again: the snapshot above may predate the move to failed.
+    const finished = await getQueue(app, QueueNames.PushTransactional).getJob(
+      jobIdFor(id),
+    );
+    expect(finished?.attemptsMade).toBe(1);
     expect(await tokens()).toEqual([
       ['gone-1', false, 'registration-token-not-registered'],
       ['gone-2', false, 'registration-token-not-registered'],
