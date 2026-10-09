@@ -4,6 +4,7 @@ import {
   IsEnum,
   IsInt,
   IsNotEmpty,
+  IsNumber,
   IsOptional,
   IsString,
   Max,
@@ -174,6 +175,23 @@ export class EnvironmentVariables {
   @IsInt()
   @Min(0)
   RETRY_BASE_DELAY_MS: number = 2_000;
+
+  // Provider send rates per channel, split between the transactional and
+  // marketing queues (src/queue/rate-limits.ts). SES starts at 1/s in the
+  // sandbox and 14/s in production; FCM allows far more.
+  @IsInt()
+  @Min(2)
+  EMAIL_RATE_PER_SEC: number = 14;
+
+  @IsInt()
+  @Min(2)
+  PUSH_RATE_PER_SEC: number = 1_000;
+
+  // Fraction of each channel's rate reserved for transactional sends.
+  @IsNumber()
+  @Min(0)
+  @Max(1)
+  TRANSACTIONAL_RATE_SHARE: number = 0.3;
 
   // Sweeper (ADR-0003): how often it runs, and how long a notification may
   // sit in PENDING, or in QUEUED/RETRYING/SENDING, before it is checked.

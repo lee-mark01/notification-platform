@@ -12,6 +12,7 @@ import {
   type SendJobData,
   type SendQueueName,
 } from './queue.constants';
+import { rateLimits } from './rate-limits';
 import { SendProcessor } from './send.processor';
 
 // Jobs processed at once per queue in this process. Transactional queues get
@@ -60,11 +61,23 @@ export class WorkersService
       host: this.config.get('REDIS_HOST', { infer: true }),
       port: this.config.get('REDIS_PORT', { infer: true }),
     };
+    const limits = rateLimits({
+      emailPerSecond: this.config.get('EMAIL_RATE_PER_SEC', { infer: true }),
+      pushPerSecond: this.config.get('PUSH_RATE_PER_SEC', { infer: true }),
+      transactionalShare: this.config.get('TRANSACTIONAL_RATE_SHARE', {
+        infer: true,
+      }),
+    });
     for (const [name, concurrency] of Object.entries(CONCURRENCY)) {
       const worker = new Worker<SendJobData>(
         name,
         (job, token) => this.processor.process(job, token),
-        { connection, concurrency, ...STALL_SETTINGS },
+        {
+          connection,
+          concurrency,
+          limiter: limits[name as SendQueueName],
+          ...STALL_SETTINGS,
+        },
       );
       let failing = false;
       worker.on('error', (error) => {

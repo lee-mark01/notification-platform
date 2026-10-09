@@ -63,5 +63,9 @@ export default async function globalSetup(): Promise<void> {
     RETRY_BASE_DELAY_MS: '10',
     // Tests call Sweeper.sweep() directly; keep the scheduled one out of the way.
     SWEEP_INTERVAL_MS: '3600000',
+    // Production-like limits would slow suites that send many jobs; the
+    // limiter suite sets its own.
+    EMAIL_RATE_PER_SEC: '10000',
+    PUSH_RATE_PER_SEC: '10000',
   });
 }
