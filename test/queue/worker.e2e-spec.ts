@@ -58,7 +58,13 @@ describe('Send workers (e2e)', () => {
     fake.reset();
     fake.latencyMs = 0;
     ({ client, apiKey } = await seedClient(dataSource));
-    userId = (await seedUser(dataSource)).id;
+    // Opted in, so the marketing push below passes the send policy.
+    userId = (
+      await seedUser(dataSource, {
+        marketingOptIn: true,
+        marketingOptInAt: new Date(),
+      })
+    ).id;
     template = await seedEmailTemplate(dataSource);
     await seedPushTemplate(dataSource);
   });
