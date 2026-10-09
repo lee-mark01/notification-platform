@@ -162,6 +162,20 @@ export class EnvironmentVariables {
   @Min(0)
   RETRY_BASE_DELAY_MS: number = 2_000;
 
+  // Sweeper (ADR-0003): how often it runs, and how long a notification may
+  // sit in PENDING, or in QUEUED/RETRYING/SENDING, before it is checked.
+  @IsInt()
+  @Min(1_000)
+  SWEEP_INTERVAL_MS: number = 30_000;
+
+  @IsInt()
+  @Min(0)
+  SWEEP_PENDING_AFTER_MS: number = 60_000;
+
+  @IsInt()
+  @Min(0)
+  SWEEP_STUCK_AFTER_MS: number = 600_000;
+
   // Fixed delay per fake send, for load tests (D10).
   @IsInt()
   @Min(0)

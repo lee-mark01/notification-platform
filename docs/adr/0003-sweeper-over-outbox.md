@@ -23,7 +23,14 @@ A. 사실상 **`notification` 테이블의 PENDING 상태가 Outbox 역할을 �
 
 - 유실 방지: 알림은 커밋돼야만 존재하고, PENDING으로 남은 것은 Sweeper가 `ix_notification_status_updated_at`으로 찾아 다시 등록한다. Redis 장애 후 복구되면 유실 0건이어야 한다(장애 시나리오 2, chaos 스크립트로 검증).
 - 중복 등록: Dispatcher와 Sweeper가 같은 알림을 동시에 등록해도 `jobId = notificationId`로 BullMQ가 중복 job을 만들지 않는다. job이 이미 지워진 뒤 재등록되더라도 Worker의 조건부 점유가 두 번째 처리를 막는다.
-- 감수할 점: 등록 실패 시 Sweeper 주기(예: 30초)와 대기 기준(예: 1분)만큼 지연된다.
+- 감수할 점: 등록 실패 시 Sweeper 주기(기본 30초)와 대기 기준(기본 1분)만큼 지연된다.
+
+## 구현 (PR #45)
+
+- 실행: BullMQ job scheduler(`maintenance` 큐, `every: SWEEP_INTERVAL_MS`). 인스턴스가 여러 개여도 주기마다 한 번만 돈다. Redis가 죽어 있으면 sweep도 돌지 않지만, 그때는 어차피 등록할 수 없다.
+- 대상: 1분 넘은 `PENDING`과 10분 넘은 `QUEUED`·`RETRYING`·`SENDING`(lease 60초보다 충분히 긴 기준). 뒤쪽은 job이 있어야 하는데 없어졌을 수 있는 상태다. 예: Redis 데이터 유실, 재등록에 실패한 redrive, lease를 쥔 채 마지막 시도에서 죽은 Worker.
+- 판단: 해당 jobId의 job이 대기·지연·실행 중이면 건드리지 않는다. 다시 넣으면 대기열 맨 뒤로 밀리기 때문이다. 없거나 이미 끝났으면 지우고 다시 넣는다. PENDING은 T1으로 QUEUED가 된다.
+- 한 번에 상태 묶음별 500건(오래된 순). 큐에 닿지 않으면 그 자리에서 멈추고 다음 주기에 다시 본다.
 
 ## 이 결정이 바뀌는 조건
 

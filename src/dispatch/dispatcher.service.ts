@@ -1,5 +1,10 @@
 import { InjectQueue } from '@nestjs/bullmq';
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  OnApplicationBootstrap,
+  OnModuleInit,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { Queue } from 'bullmq';
 import { Repository } from 'typeorm';
@@ -20,6 +25,11 @@ export const DISPATCH_TIMEOUT_MS = 1_000;
 
 export type DispatchTarget = Pick<Notification, 'id' | 'channel' | 'category'>;
 
+export type EnsureJobResult = 'in-flight' | 'added' | 'failed';
+
+// Job states after which a new job with the same id may be added.
+const REPLACEABLE = new Set(['missing', 'completed', 'failed', 'unknown']);
+
 /**
  * Puts a committed notification on the queue for its channel and category,
  * then marks it QUEUED. Called after the intake transaction commits, never
@@ -27,7 +37,7 @@ export type DispatchTarget = Pick<Notification, 'id' | 'channel' | 'category'>;
  * the sweeper instead of failing the request.
  */
 @Injectable()
-export class Dispatcher implements OnModuleInit {
+export class Dispatcher implements OnModuleInit, OnApplicationBootstrap {
   private readonly logger = new Logger(Dispatcher.name);
   private readonly queues: Record<SendQueueName, Queue<SendJobData>>;
   private failing = false;
@@ -61,6 +71,16 @@ export class Dispatcher implements OnModuleInit {
     }
   }
 
+  // Connect now rather than on the first request: the first add() would
+  // otherwise also pay for connecting and the version check, and could hit
+  // DISPATCH_TIMEOUT_MS on a busy host. Not awaited, so startup does not wait
+  // for Redis.
+  onApplicationBootstrap(): void {
+    for (const queue of Object.values(this.queues)) {
+      queue.waitUntilReady().catch(() => undefined);
+    }
+  }
+
   /** Returns true if the job was added; false leaves it for the sweeper. */
   async dispatch(notification: DispatchTarget): Promise<boolean> {
     const queue =
@@ -83,12 +103,49 @@ export class Dispatcher implements OnModuleInit {
     }
     this.failing = false;
 
-    // Conditional: a worker may already have moved it to SENDING.
+    await this.markQueued(notification.id);
+    return true;
+  }
+
+  /** T1. Conditional: a worker may already have moved it to SENDING. */
+  async markQueued(id: number): Promise<void> {
     await this.notifications.update(
-      { id: notification.id, status: NotificationStatus.Pending },
+      { id, status: NotificationStatus.Pending },
       { status: NotificationStatus.Queued, queuedAt: new Date() },
     );
-    return true;
+  }
+
+  /**
+   * For the sweeper: makes sure a job exists for the notification. A job
+   * still waiting, delayed or running is left alone (re-adding would move it
+   * to the back of the queue); a missing or finished one is replaced.
+   */
+  async ensureJob(notification: DispatchTarget): Promise<EnsureJobResult> {
+    const queue =
+      this.queues[queueFor(notification.channel, notification.category)];
+    const jobId = jobIdFor(notification.id);
+    try {
+      return await withTimeout(
+        (async () => {
+          const job = await queue.getJob(jobId);
+          const state = job ? await job.getState() : 'missing';
+          if (!REPLACEABLE.has(state)) return 'in-flight';
+          if (job) await queue.remove(jobId);
+          await queue.add(
+            SEND_JOB,
+            { notificationId: notification.id },
+            { jobId },
+          );
+          return 'added';
+        })(),
+        DISPATCH_TIMEOUT_MS,
+      );
+    } catch (error) {
+      this.logger.warn(
+        `Notification ${notification.id} not checked: ${(error as Error).message}`,
+      );
+      return 'failed';
+    }
   }
 
   /**

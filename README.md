@@ -129,7 +129,11 @@ npm run client:create -- my-service   # API 키 발급 (한 번만 표시)
   - 장애 시나리오 3: 5xx 3번 후 성공 → `SENT`, 시도 기록 4행 (E2E)
   - 장애 시나리오 5: 5번 모두 실패 → `DEAD` + DLQ job (E2E)
 - 운영자는 `X-Admin-Key`로 `GET /admin/dlq`(DEAD 목록)와 `POST /admin/dlq/redrive`(다시 보내기)를 씁니다. DEAD가 아닌 건은 건너뛰므로 같은 redrive를 두 번 눌러도 한 번만 다시 보냅니다(E2E: DEAD → redrive → SENT).
-- Sweeper, 수신거부 검사는 Phase 3에서 이어서 추가합니다.
+- 커밋 후 큐 등록에 실패해 `PENDING`으로 남은 알림은 Sweeper가 다시 등록합니다. Outbox 테이블 대신 알림 행의 상태를 안전망으로 씁니다([ADR-0003](docs/adr/0003-sweeper-over-outbox.md)).
+  - BullMQ job scheduler로 30초마다, 인스턴스가 여러 개여도 한 번만 돕니다.
+  - 오래 머문 `QUEUED`·`RETRYING`·`SENDING` 중 job이 사라진 것도 다시 넣습니다.
+  - 장애 시나리오 2: Redis가 꺼진 상태에서 접수 → `PENDING` → 복구 후 sweep → `SENT` (E2E)
+- 수신거부 검사는 Phase 3에서 이어서 추가합니다.
 
 ## 사용자 API
 

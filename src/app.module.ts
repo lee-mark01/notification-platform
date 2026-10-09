@@ -9,6 +9,7 @@ import { HealthModule } from './health/health.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { WorkerModule } from './queue/worker.module';
 import { RedisModule } from './redis/redis.module';
+import { SweeperModule } from './sweeper/sweeper.module';
 import { TemplatesModule } from './templates/templates.module';
 
 @Module({
@@ -37,6 +38,7 @@ import { TemplatesModule } from './templates/templates.module';
     NotificationsModule,
     DevicesModule,
     AdminModule,
+    SweeperModule,
     WorkerModule,
   ],
 })
