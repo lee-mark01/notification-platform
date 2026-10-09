@@ -26,11 +26,18 @@ const datetime3 = { type: 'datetime', precision: 3 } as const;
 @Index('ix_notification_user_created', ['userId', 'createdAt', 'id'])
 @Index('ix_notification_user_read', ['userId', 'readAt'])
 @Index('ix_notification_batch', ['batchId'])
-@Index('ix_notification_created_channel', [
+// (created_at, id) in InnoDB: history pages read it backwards and stop
+// after one page (#83).
+@Index('ix_notification_created_at', ['createdAt'])
+// Covers the stats queries (summary, read rates) over a period, so they never
+// touch the rows (#83).
+@Index('ix_notification_stats', [
   'createdAt',
   'channel',
   'category',
   'status',
+  'templateId',
+  'readAt',
 ])
 export class Notification {
   @PrimaryGeneratedColumn({ type: 'bigint', unsigned: true })
