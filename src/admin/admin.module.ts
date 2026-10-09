@@ -7,6 +7,7 @@ import { QueueModule } from '../queue/queue.module';
 import { AdminKeyGuard } from './admin-key.guard';
 import { DlqController } from './dlq/dlq.controller';
 import { DlqService } from './dlq/dlq.service';
+import { ReadRatesController, ReadRatesService } from './stats/read-rates';
 
 @Module({
   imports: [
@@ -14,7 +15,12 @@ import { DlqService } from './dlq/dlq.service';
     QueueModule,
     DispatchModule,
   ],
-  controllers: [DlqController],
-  providers: [AdminKeyGuard, NotificationTransitions, DlqService],
+  controllers: [DlqController, ReadRatesController],
+  providers: [
+    AdminKeyGuard,
+    NotificationTransitions,
+    DlqService,
+    ReadRatesService,
+  ],
 })
 export class AdminModule {}

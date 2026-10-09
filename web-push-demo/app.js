@@ -9,10 +9,62 @@ const config = self.DEMO_CONFIG;
 const log = document.getElementById('log');
 const jwtInput = document.getElementById('jwt');
 
+// Demo only: the JWT is kept in localStorage so a tab opened by a
+// notification click can mark it read. A real app keeps its session its own way.
+const JWT_KEY = 'demo-user-jwt';
+const storage = {
+  get: () => {
+    try {
+      return localStorage.getItem(JWT_KEY);
+    } catch {
+      return null;
+    }
+  },
+  set: (value) => {
+    try {
+      localStorage.setItem(JWT_KEY, value);
+    } catch {
+      // Private mode: clicks will not be marked read.
+    }
+  },
+};
+
 function write(line) {
   const time = new Date().toLocaleTimeString();
   log.textContent = `[${time}] ${line}\n${log.textContent}`;
 }
+
+async function markRead(id) {
+  const jwt = storage.get();
+  if (!config || !jwt) {
+    write(`알림 ${id} 클릭: JWT가 없어 읽음 처리를 못 했습니다.`);
+    return;
+  }
+  const res = await fetch(
+    `${config.apiBaseUrl}/me/notifications/${encodeURIComponent(id)}/read`,
+    { method: 'PATCH', headers: { Authorization: `Bearer ${jwt}` } },
+  );
+  const body = await res.json();
+  write(
+    res.ok
+      ? `알림 ${id} 클릭 → 읽음 처리 ${res.status}, readAt=${body.readAt}`
+      : `알림 ${id} 읽음 처리 실패 ${res.status}: ${body.detail ?? body.title}`,
+  );
+}
+
+// A click while this page is open arrives as a message from the service
+// worker; a click that opened this page arrives as ?read=<id>.
+navigator.serviceWorker?.addEventListener('message', (event) => {
+  if (event.data?.type === 'notification-clicked') {
+    void markRead(event.data.notificationId);
+  }
+});
+const clicked = new URLSearchParams(location.search).get('read');
+if (clicked) {
+  history.replaceState(null, '', location.pathname);
+  void markRead(clicked);
+}
+jwtInput.value = storage.get() ?? '';
 
 if (!config) {
   write(
@@ -63,6 +115,7 @@ if (!config) {
         write(`등록 실패 ${res.status}: ${body.detail ?? body.title}`);
         return;
       }
+      storage.set(jwt);
       write(
         `등록 완료 ${res.status} (${res.status === 201 ? '새 토큰' : '기존 토큰 갱신'}), device id=${body.id}`,
       );
