@@ -4,7 +4,7 @@
 
 이메일(AWS SES)과 웹 푸시(FCM)를 하나의 API로 보내는 알림 플랫폼입니다. 핵심은 **유실과 중복**입니다. 요청이 여러 번 와도 알림은 하나만 만들고, Redis나 Worker가 죽어도 접수한 알림을 잃지 않으며, 막을 수 없는 중복 발송 구간은 정의하고 측정합니다.
 
-> 기반(Phase 0), 설계(Phase 1), 정상 흐름(Phase 2), 실패 처리(Phase 3)까지 구현했습니다. SES 반송·신고 웹훅, 알림함, 대량 발송, 관리 화면, 관측은 다음 단계입니다.
+> 기반(Phase 0), 설계(Phase 1), 정상 흐름(Phase 2), 실패 처리(Phase 3), SES 웹훅·알림함·읽음 추적(Phase 4)까지 구현했습니다. 대량 발송, 관리 화면, 관측은 다음 단계입니다.
 
 ## 한눈에 보기
 
@@ -211,6 +211,34 @@ SES의 배달·반송·신고·오픈 이벤트는 Configuration Set → SNS 토
   - Complaint → `COMPLAINED` + 수신거부(COMPLAINT)
   - Open → 첫 번째 오픈 시각을 `read_at`에(이미지 차단·선로딩 때문에 근사치)
 - SES는 우리가 `SENT`를 기록하기 전에 이벤트를 보낼 수 있습니다. 그런 이벤트는 미처리로 남기고 Sweeper 주기마다 다시 매칭합니다(24시간까지). 수신거부는 매칭과 상관없이 받는 즉시 등록합니다.
+
+### 실제 SES 이벤트 받기 (설정)
+
+SNS가 로컬 앱에 닿도록 공개 HTTPS 주소가 필요합니다. 여기서는 ngrok을 씁니다(D11). 리전은 SES와 같은 서울(`ap-northeast-2`)입니다.
+
+1. **ngrok**: 설치 후 계정의 authtoken을 등록하고, 앱 포트를 엽니다. 출력된 `https://….ngrok-free.app` 주소를 씁니다.
+   ```bash
+   ngrok http 3000
+   ```
+2. **SNS 토픽**: SNS 콘솔 → 주제 생성 → 표준, 이름 예: `ses-events`. 주제 ARN을 `.env`의 `SNS_TOPIC_ARN`에 넣습니다.
+3. **SES가 토픽에 게시할 권한**: 주제 → 편집 → 액세스 정책에 아래 문장을 추가합니다(계정 ID와 ARN은 본인 것으로).
+   ```json
+   {
+     "Sid": "AllowSesPublish",
+     "Effect": "Allow",
+     "Principal": { "Service": "ses.amazonaws.com" },
+     "Action": "sns:Publish",
+     "Resource": "arn:aws:sns:ap-northeast-2:<계정ID>:ses-events",
+     "Condition": { "StringEquals": { "AWS:SourceAccount": "<계정ID>" } }
+   }
+   ```
+4. **Configuration Set**: SES 콘솔 → 구성 세트 생성, 이름 예: `notification-events` → 이벤트 대상 추가 → 이벤트 유형 Deliveries, Hard bounces, Complaints, Opens → 대상 Amazon SNS, 2번 주제. 이름을 `.env`의 `SES_CONFIGURATION_SET`에 넣습니다.
+   - 발송 IAM 정책의 `Resource`를 ID로 좁혀 두었다면 `arn:aws:ses:ap-northeast-2:<계정ID>:configuration-set/notification-events`도 허용해야 합니다.
+5. **앱 실행 후 구독**: `.env`를 반영해 앱을 띄우고(`EMAIL_PROVIDER=ses`), SNS 콘솔 → 구독 생성 → 프로토콜 HTTPS, 엔드포인트 `https://<ngrok 주소>/webhooks/ses`. 앱이 서명을 검증한 뒤 자동으로 구독을 확인합니다(로그 `Subscribed to …`, 콘솔 상태 "확인됨").
+6. **확인**: SES 메일박스 시뮬레이터로 보내면 이벤트가 돌아옵니다.
+   - `success@simulator.amazonses.com` → `DELIVERED`
+   - `bounce@simulator.amazonses.com` → `BOUNCED` + 수신거부(`HARD_BOUNCE`)
+   - `complaint@simulator.amazonses.com` → `COMPLAINED` + 수신거부(`COMPLAINT`)
 
 ## 사용자 API
 
