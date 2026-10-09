@@ -54,11 +54,12 @@ function connectionFrom(config: ConfigService<EnvironmentVariables, true>) {
                 delay: config.get('RETRY_BASE_DELAY_MS', { infer: true }),
                 jitter: 0.5,
               },
-              // Finished jobs are kept for a while so a duplicate add() with the
-              // same job id is still ignored. After removal a duplicate could be
-              // added again; the worker's conditional status update stops it.
+              // ADR-0005. Finished jobs are kept for a while so a duplicate
+              // add() with the same job id is still ignored; after removal the
+              // worker's conditional claim stops a second send. The counts cap
+              // Redis memory: a bounce storm must not keep every failure.
               removeOnComplete: { age: 24 * HOUR_S, count: 10_000 },
-              removeOnFail: { age: 7 * 24 * HOUR_S },
+              removeOnFail: { age: 7 * 24 * HOUR_S, count: 10_000 },
             },
           }),
         }),
