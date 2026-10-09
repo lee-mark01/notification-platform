@@ -5,11 +5,16 @@ export const QueueNames = {
   PushTransactional: 'push-transactional',
   PushMarketing: 'push-marketing',
   Dlq: 'notification-dlq',
+  // Periodic upkeep such as the sweeper; one job per tick across instances.
+  Maintenance: 'maintenance',
 } as const;
 
 export type QueueName = (typeof QueueNames)[keyof typeof QueueNames];
 
-export type SendQueueName = Exclude<QueueName, typeof QueueNames.Dlq>;
+export type SendQueueName = Exclude<
+  QueueName,
+  typeof QueueNames.Dlq | typeof QueueNames.Maintenance
+>;
 
 export const SEND_QUEUES: readonly SendQueueName[] = [
   QueueNames.EmailTransactional,
