@@ -90,6 +90,37 @@ export class Dispatcher implements OnModuleInit {
     );
     return true;
   }
+
+  /**
+   * Adds a new job for a notification whose earlier job already finished
+   * (redrive). The failed job stays in Redis for days and would turn add()
+   * with the same id into a no-op, so it is removed first. The caller has
+   * already moved the status; on failure the sweeper re-adds it later.
+   */
+  async requeue(notification: DispatchTarget): Promise<boolean> {
+    const queue =
+      this.queues[queueFor(notification.channel, notification.category)];
+    const jobId = jobIdFor(notification.id);
+    try {
+      await withTimeout(
+        (async () => {
+          await queue.remove(jobId);
+          await queue.add(
+            SEND_JOB,
+            { notificationId: notification.id },
+            { jobId },
+          );
+        })(),
+        DISPATCH_TIMEOUT_MS,
+      );
+      return true;
+    } catch (error) {
+      this.logger.warn(
+        `Notification ${notification.id} not requeued: ${(error as Error).message}`,
+      );
+      return false;
+    }
+  }
 }
 
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {

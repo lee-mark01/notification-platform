@@ -110,6 +110,20 @@ export class NotificationTransitions {
     return result.affected === 1;
   }
 
+  /**
+   * T8: DEAD -> QUEUED by an operator. attempt_count is kept, not reset: it
+   * numbers delivery_attempt rows (unique per notification) and fences
+   * result writes, so it must only grow. The new job brings a fresh retry
+   * budget on its own.
+   */
+  async redrive(id: number): Promise<boolean> {
+    const result = await this.notifications.update(
+      { id, status: NotificationStatus.Dead },
+      { status: NotificationStatus.Queued, queuedAt: new Date() },
+    );
+    return result.affected === 1;
+  }
+
   async statusOf(id: number): Promise<NotificationStatus | null> {
     const row = await this.notifications.findOne({
       select: { id: true, status: true },
