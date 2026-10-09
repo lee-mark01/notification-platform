@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { randomUUID } from 'node:crypto';
 import { setTimeout as sleep } from 'node:timers/promises';
@@ -22,6 +22,7 @@ export type FakeOutcome =
 @Injectable()
 export class FakeProvider implements NotificationProvider {
   readonly name = 'fake';
+  private readonly logger = new Logger(FakeProvider.name);
   readonly sent: OutboundMessage[] = [];
   latencyMs: number;
   failureRate = 0;
@@ -55,6 +56,9 @@ export class FakeProvider implements NotificationProvider {
       );
     }
     this.sent.push(message);
+    // One line per delivered message: the chaos scripts count these across
+    // worker restarts to measure duplicate sends (scenario 6).
+    this.logger.log(`delivered notification=${message.notificationId}`);
     return { providerMessageId: `fake-${randomUUID()}` };
   }
 
