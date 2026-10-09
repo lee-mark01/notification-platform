@@ -219,6 +219,8 @@ SES의 배달·반송·신고·오픈 이벤트는 Configuration Set → SNS 토
 npm run user:token -- me@example.com   # 사용자를 찾거나 만들고 1시간짜리 토큰 출력
 ```
 
+- 알림함: `GET /me/notifications`(최신순, `(created_at, id)` 커서, `unread=true`), `GET /me/notifications/unread-count`, `PATCH /me/notifications/{id}/read`·`/unread`, `POST /me/notifications/read-all`. 실제로 발송된 알림만 보입니다.
+- 읽음은 `read_at IS NULL`일 때만 기록하는 조건부 UPDATE라, 같은 요청을 반복해도 처음 읽은 시각이 그대로입니다(장애 시나리오 12, E2E).
 - 같은 토큰을 다시 등록하면 200으로 갱신(upsert)하고, 비활성화된 토큰은 다시 활성화합니다.
 - 서명 알고리즘은 HS256으로 고정하고 `exp`가 없는 토큰은 거부합니다(`alg: none`, 만료, 다른 키 서명 등 E2E로 확인).
 
