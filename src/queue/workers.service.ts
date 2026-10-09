@@ -74,6 +74,10 @@ export class WorkersService
       worker.on('ready', () => {
         failing = false;
       });
+      // A job whose worker died; counted by the chaos scripts (scenarios 6, 7).
+      worker.on('stalled', (jobId) => {
+        this.logger.warn(`Job ${jobId} on ${name} stalled`);
+      });
       worker.on('failed', (job, error) => {
         this.logger.warn(
           `Job ${job?.id ?? '?'} on ${name} failed: ${error.message}`,
