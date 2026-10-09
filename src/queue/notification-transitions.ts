@@ -141,6 +141,15 @@ export class NotificationTransitions {
     return result.affected === 1;
   }
 
+  async leaseOf(
+    id: number,
+  ): Promise<Pick<Notification, 'status' | 'leaseUntil'> | null> {
+    return this.notifications.findOne({
+      select: { id: true, status: true, leaseUntil: true },
+      where: { id },
+    });
+  }
+
   async statusOf(id: number): Promise<NotificationStatus | null> {
     const row = await this.notifications.findOne({
       select: { id: true, status: true },
