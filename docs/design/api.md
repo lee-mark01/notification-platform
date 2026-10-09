@@ -215,13 +215,15 @@ Location: /notifications/1024
 
 ## 웹훅
 
-### `POST /webhooks/ses` (Phase 4)
+### `POST /webhooks/ses` (구현됨: 수신·검증·저장. 이벤트 반영은 #64)
 
 - SNS는 본문을 `Content-Type: text/plain`으로 보낸다. 이 경로만 원문 텍스트로 받아 JSON으로 파싱한다.
 - 처리 순서: 서명 검증(인증서 URL이 `sns.<region>.amazonaws.com` 도메인인지 포함) → `Type`별 처리.
   - `SubscriptionConfirmation`: 설정한 토픽 ARN일 때만 `SubscribeURL`을 호출해 구독 확인.
   - `Notification`: `webhook_event`에 저장(MessageId 유니크) → 이벤트 반영.
-- 응답: 성공·중복 모두 200(SNS가 재전송하지 않게). 서명 실패 403, 다른 토픽 403.
+- 응답: 성공·중복 모두 200(SNS가 재전송하지 않게). 서명 실패·다른 토픽·SNS가 아닌 인증서 주소 403(`webhook-rejected`), SNS 메시지 형식이 아니면 400.
+- 서명 문자열은 AWS 문서의 필드 순서(Notification: Message, MessageId, Subject, Timestamp, TopicArn, Type)로 만들고 SignatureVersion 1은 SHA1, 2는 SHA256으로 검증한다. 인증서는 URL별로 캐시한다.
+- 토픽은 `SNS_TOPIC_ARN`과 일치해야 한다. 설정이 없으면 모든 메시지를 거부한다.
 
 ## 관리자 API
 

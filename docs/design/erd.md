@@ -296,7 +296,7 @@ FCM 등록 토큰. 사용자 1명이 브라우저·기기 여러 개를 가질 �
 - `uq_idempotency_key_client_key (client_id, idem_key)`: 동시에 같은 키가 와도 한 행만 생긴다 (장애 시나리오 1).
 - `ix_idempotency_key_expires_at (expires_at)`: 만료 키 정리.
 
-### webhook_event (Phase 4)
+### webhook_event (구현됨)
 
 SNS가 보낸 SES 이벤트. 같은 메시지의 중복 수신을 막고 원본을 남긴다.
 

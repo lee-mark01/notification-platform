@@ -197,6 +197,14 @@ npm run client:create -- my-service   # API 키 발급 (한 번만 표시)
   - 장애 시나리오 4: Provider가 주소 자체를 거부 → 재시도 없이 `FAILED` + 수신거부 등록, 다음 알림은 Provider 전에 차단 (E2E)
   - 마케팅은 사전 동의한 사용자에게만 보냅니다(`PUT /me/marketing-consent`). 사용자 정보가 없는 주소로 가는 마케팅은 동의를 확인할 수 없어 보내지 않습니다.
 
+## SES 웹훅
+
+SES의 배달·반송·신고·오픈 이벤트는 Configuration Set → SNS 토픽 → `POST /webhooks/ses`로 들어옵니다.
+
+- 저장하거나 외부 호출을 하기 전에 SNS가 보낸 메시지인지 확인합니다. 토픽 ARN이 일치해야 하고, 서명 인증서가 `sns.<region>.amazonaws.com`에서 온 것이어야 하며, 서명(SHA1/SHA256)이 맞아야 합니다. 하나라도 어긋나면 403이고 아무것도 저장하지 않습니다(장애 시나리오 11).
+- SNS는 2xx를 받을 때까지 다시 보냅니다. `MessageId` 유니크 제약으로 같은 메시지는 한 번만 저장하고, 중복에도 200으로 답합니다(장애 시나리오 10).
+- 구독 확인 메시지는 검증한 뒤 SNS 주소일 때만 `SubscribeURL`을 호출합니다.
+
 ## 사용자 API
 
 웹 푸시를 받을 브라우저는 `POST /devices`로 FCM 토큰을 등록합니다. 사용자는 `Authorization: Bearer <JWT>`(HS256, `sub` = 사용자 id)로 인증합니다. 실제 서비스에서는 별도 인증 서비스가 토큰을 발급한다고 가정하고, 로컬에서는 CLI로 발급합니다.
