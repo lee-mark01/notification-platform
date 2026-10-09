@@ -1,7 +1,7 @@
 import { InjectQueue } from '@nestjs/bullmq';
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
-import { type Job, type Queue, UnrecoverableError } from 'bullmq';
+import { DelayedError, type Job, type Queue, UnrecoverableError } from 'bullmq';
 import { DataSource, Repository } from 'typeorm';
 import { DeliveryAttempt } from '../notifications/delivery-attempt.entity';
 import { Notification } from '../notifications/notification.entity';
@@ -67,17 +67,21 @@ export class SendProcessor {
     private readonly suppressions: SuppressionsService,
   ) {}
 
-  async process(job: Job<SendJobData>): Promise<void> {
+  /**
+   * @param token the worker's lock token for this job; with it, a job that
+   *   finds a live lease waits for it instead of failing
+   */
+  async process(job: Job<SendJobData>, token?: string): Promise<void> {
     const id = job.data.notificationId;
     const attemptNo = await this.transitions.claim(id);
     if (attemptNo === null) {
-      const status = await this.transitions.statusOf(id);
-      // Another worker is mid-send. Failing the job (rather than completing
-      // it) lets a retry re-claim once that lease expires (scenario 6).
-      if (status === NotificationStatus.Sending) throw new LeaseHeldError(id);
+      const current = await this.transitions.leaseOf(id);
+      if (current?.status === NotificationStatus.Sending) {
+        await this.waitForLease(job, token, id, current.leaseUntil);
+      }
       // Already finished, or gone: this is a duplicate job, nothing to send.
       this.logger.log(
-        `Notification ${id} skipped: status ${status ?? 'missing'}`,
+        `Notification ${id} skipped: status ${current?.status ?? 'missing'}`,
       );
       return;
     }
@@ -129,6 +133,26 @@ export class SendProcessor {
       await this.transitions.markSent(manager, id, providerMessageId);
       await manager.insert(DeliveryAttempt, attempt(AttemptOutcome.Success));
     });
+  }
+
+  /**
+   * Another worker holds the lease: it is mid-send, or it died (scenario 6,
+   * after BullMQ re-runs the stalled job). Completing the job would leave a
+   * dead worker's notification unsent, and failing it would spend an attempt
+   * on every check. Instead the job is delayed until the lease runs out and
+   * then claims again; DelayedError tells BullMQ it was moved, not failed.
+   */
+  private async waitForLease(
+    job: Job<SendJobData>,
+    token: string | undefined,
+    id: number,
+    leaseUntil: Date | null,
+  ): Promise<never> {
+    if (!token) throw new LeaseHeldError(id);
+    // A second of margin for clock differences between hosts.
+    const at = Math.max(leaseUntil?.getTime() ?? 0, Date.now()) + 1_000;
+    await job.moveToDelayed(at, token);
+    throw new DelayedError();
   }
 
   /** Records the failed attempt and its transition, then fails the job. */

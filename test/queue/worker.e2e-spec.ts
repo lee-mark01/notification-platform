@@ -247,6 +247,31 @@ describe('Send workers (e2e)', () => {
       expect((await attempts(id)).map((a) => a.attemptNo)).toEqual([2]);
     });
 
+    it('delays a job that finds a live lease until it expires, without spending an attempt', async () => {
+      const id = await insertNotification({
+        status: NotificationStatus.Sending,
+        attemptCount: 1,
+        leaseUntil: new Date(Date.now() + 1_500),
+      });
+      const queue = getQueue(app, QueueNames.EmailTransactional);
+      await queue.add(
+        SEND_JOB,
+        { notificationId: id },
+        { jobId: jobIdFor(id) },
+      );
+
+      const delayed = await waitFor(async () => {
+        const job = await queue.getJob(jobIdFor(id));
+        return (await job?.getState()) === 'delayed' ? job : undefined;
+      });
+      expect(delayed.attemptsMade).toBe(0);
+      expect(fake.sent).toHaveLength(0);
+
+      const row = await settled(id, NotificationStatus.Sent);
+      expect(row.attemptCount).toBe(2);
+      expect(fake.sent).toHaveLength(1);
+    });
+
     it('does not let a worker that lost its lease record a failure', async () => {
       const id = await insertNotification();
       const transitions = app.get(NotificationTransitions);

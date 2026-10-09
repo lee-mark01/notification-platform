@@ -124,6 +124,8 @@ npm run client:create -- my-service   # API 키 발급 (한 번만 표시)
 - Provider는 공통 인터페이스 뒤에 있습니다(어댑터 패턴). 테스트는 결과·지연·실패율을 주입할 수 있는 `FakeProvider`를 씁니다. 채널별 Provider는 `EMAIL_PROVIDER`, `PUSH_PROVIDER`로 고릅니다.
 - 실제 이메일은 `EMAIL_PROVIDER=ses`로 AWS SES v2(서울 리전, 샌드박스)를 통해 보냅니다. SES SDK의 자체 재시도는 끄고(`maxAttempts: 1`) 재시도는 큐가 맡습니다. 그래야 시도마다 `delivery_attempt`에 남고 백오프가 한곳에서 관리됩니다. 메일박스 시뮬레이터 주소로 보내 `SENT`와 SES `MessageId` 저장을 확인했습니다.
 - SES 오류 분류: 스로틀링·한도·SES 내부 오류·네트워크 오류는 일시 오류, `MessageRejected`·`BadRequestException`(잘못된 주소, 샌드박스의 미인증 수신자)은 영구 오류입니다. 계정 정지·발송 일시 중지처럼 메시지 탓이 아닌 오류는 일시 오류로 분류해 DLQ에서 다시 보낼 수 있게 했습니다.
+- `SIGTERM`을 받으면 진행 중인 job을 끝내고 결과를 기록한 뒤 종료합니다(`enableShutdownHooks`, Worker를 DB보다 먼저 닫음). 장애 시나리오 7의 앱 내부 부분을 E2E로 확인했고, 실제 프로세스 종료는 chaos 스크립트로 확인합니다.
+- Worker가 죽으면 BullMQ가 stall을 감지해 job을 되돌립니다. 다른 Worker가 아직 lease를 쥐고 있으면 그 job은 실패하지 않고 lease가 끝날 때까지 미뤄집니다(재시도 횟수를 쓰지 않음).
 - `WORKERS_ENABLED=false`면 API만 띄웁니다.
 - 실패는 일시·영구로 분류합니다. 일시 오류는 지수 백오프 + jitter(기본 2초부터, 최대 5번 시도)로 재시도하고, 마지막 시도까지 실패하면 `DEAD`로 바꿔 DLQ(`notification-dlq`)로 옮깁니다. 영구 오류는 재시도 없이 `FAILED`입니다.
   - 장애 시나리오 3: 5xx 3번 후 성공 → `SENT`, 시도 기록 4행 (E2E)
