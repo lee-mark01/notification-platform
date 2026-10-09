@@ -100,3 +100,51 @@ describe('Swagger (e2e)', () => {
     }
   });
 });
+
+// Every operation documents what a client needs: a summary, a success
+// response, and the credential it takes.
+describe('Swagger completeness (e2e)', () => {
+  type Operation = {
+    tags?: string[];
+    summary?: string;
+    security?: Record<string, string[]>[];
+    responses: Record<string, unknown>;
+  };
+  let operations: [string, string, Operation][];
+
+  beforeAll(async () => {
+    const doc = (await fetchDocument()) as unknown as {
+      paths: Record<string, Record<string, Operation>>;
+    };
+    operations = Object.entries(doc.paths).flatMap(([path, methods]) =>
+      Object.entries(methods).map(
+        ([method, op]) => [path, method, op] as [string, string, Operation],
+      ),
+    );
+  });
+
+  it('gives each operation a tag, a summary and a 2xx response', () => {
+    const missing = operations
+      .filter(
+        ([, , op]) =>
+          !op.tags?.length ||
+          !op.summary ||
+          !Object.keys(op.responses).some((code) => code.startsWith('2')),
+      )
+      .map(([path, method]) => `${method.toUpperCase()} ${path}`);
+    expect(missing).toEqual([]);
+  });
+
+  it.each([
+    ['/admin/', 'admin-key'],
+    ['/notification', 'api-key'],
+    ['/me/', 'user-jwt'],
+    ['/devices', 'user-jwt'],
+  ])('documents the credential for %s', (prefix, scheme) => {
+    const wrong = operations
+      .filter(([path]) => path.startsWith(prefix))
+      .filter(([, , op]) => !op.security?.some((s) => Object.hasOwn(s, scheme)))
+      .map(([path, method]) => `${method.toUpperCase()} ${path}`);
+    expect(wrong).toEqual([]);
+  });
+});

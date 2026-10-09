@@ -55,10 +55,34 @@ function setupSwagger(app: NestExpressApplication): void {
     new DocumentBuilder()
       .setTitle('notification-platform')
       .setDescription(
-        'Unified email and push notification API. Errors use RFC 9457 ' +
-          'Problem Details (application/problem+json).',
+        [
+          'Unified email and push notification API.',
+          '',
+          '- Errors use RFC 9457 Problem Details (application/problem+json).',
+          '- POST requests that create notifications need an Idempotency-Key header.',
+          '- Every response carries X-Request-Id; send your own to trace a request into the worker logs.',
+          '- Credentials: X-API-Key for sending services, Bearer JWT for end users, X-Admin-Key for operators.',
+        ].join('\n'),
       )
       .setVersion('0.1.0')
+      // Listed in this order in the UI: sending first, operations last.
+      .addTag(
+        'notifications',
+        'Send one notification or a batch, and read its status',
+      )
+      .addTag('devices', 'Register FCM tokens for web push (end user)')
+      .addTag('me', 'Inbox, read state and marketing consent (end user)')
+      .addTag('webhooks', 'SES events through SNS, signature-checked')
+      .addTag(
+        'admin: templates',
+        'Templates with optimistic locking and preview',
+      )
+      .addTag('admin: notifications', 'Delivery history search')
+      .addTag('admin: dlq', 'Dead notifications and redrive')
+      .addTag('admin: suppressions', 'Blocked addresses')
+      .addTag('admin: stats', 'Delivery and read rates')
+      .addTag('admin: queues', 'Job counts per queue')
+      .addTag('health', 'Liveness and readiness probes')
       .addApiKey({ type: 'apiKey', in: 'header', name: 'X-API-Key' }, 'api-key')
       .addApiKey(
         { type: 'apiKey', in: 'header', name: 'X-Admin-Key' },
