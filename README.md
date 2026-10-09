@@ -300,20 +300,22 @@ API는 `PUSH_PROVIDER=fcm`, `CORS_ORIGINS=http://localhost:8080`으로 띄웁니
 
 ## 템플릿 API
 
-관리용 템플릿 CRUD는 `/admin/templates`에 있습니다. 관리자 인증은 Phase 6에서 추가합니다.
+관리용 템플릿 CRUD는 `/admin/templates`에 있고, 다른 관리자 API처럼 `X-Admin-Key`가 필요합니다(없거나 틀리면 401).
 
-| 메서드·경로                                     | 성공                        | 주요 실패                        |
-| ----------------------------------------------- | --------------------------- | -------------------------------- |
-| `POST /admin/templates`                         | 201 + `Location`, `ETag`    | 400, 409 `template-key-conflict` |
-| `GET /admin/templates?channel=&limit=&cursor=`  | 200 `{ items, nextCursor }` | 400                              |
-| `GET /admin/templates/{id}`                     | 200 + `ETag`                | 404                              |
-| `PATCH /admin/templates/{id}` (`If-Match` 필수) | 200 + 새 `ETag`             | 400, 404, 412, 428               |
-| `DELETE /admin/templates/{id}`                  | 204                         | 404                              |
+| 메서드·경로                                     | 성공                        | 주요 실패                         |
+| ----------------------------------------------- | --------------------------- | --------------------------------- |
+| `POST /admin/templates`                         | 201 + `Location`, `ETag`    | 400, 409 `template-key-conflict`  |
+| `GET /admin/templates?channel=&limit=&cursor=`  | 200 `{ items, nextCursor }` | 400                               |
+| `GET /admin/templates/{id}`                     | 200 + `ETag`                | 404                               |
+| `PATCH /admin/templates/{id}` (`If-Match` 필수) | 200 + 새 `ETag`             | 400, 404, 412, 428                |
+| `DELETE /admin/templates/{id}`                  | 204                         | 404                               |
+| `POST /admin/templates/{id}/preview`            | 200 렌더 결과               | 400, 404, 422 `template-unusable` |
 
 - 템플릿은 채널(email, push) 하나에 속합니다. email은 `subject`·`htmlBody`가 필수(`textBody` 선택), push는 `title`·`body`가 필수(`data` 선택)이고, 다른 채널의 필드는 거부합니다. `key`와 `channel`은 바꿀 수 없습니다.
 - 본문에는 `{{변수}}` 자리표시자만 쓸 수 있습니다(Handlebars의 블록·헬퍼·경로·`{{{원문}}}` 출력은 거부). 본문에 쓰인 변수와 `requiredVariables`가 정확히 같아야 하고, 이메일 HTML 본문에서만 값이 HTML 이스케이프됩니다. 푸시 `data`는 렌더링하지 않고 그대로 보냅니다.
 - 수정은 낙관적 락입니다. 조회 응답의 `ETag`를 `If-Match`로 보내야 하고, 그사이 다른 수정이 있었으면 412(`precondition-failed`), `If-Match`가 없으면 428(`precondition-required`)입니다. `If-Match`는 강한 비교를 하므로 약한 ETag(`W/"..."`)는 일치하지 않습니다.
 - ETag는 이 낙관적 락 용도로만 씁니다. Express가 모든 GET 응답에 붙이는 자동 ETag는 꺼 두었으므로, `If-None-Match`로 `304 Not Modified`를 받는 캐시 재검증은 지원하지 않습니다.
+- 미리보기는 `{ variables }`를 넣어 접수 때와 같은 규칙으로 렌더링한 결과를 돌려줍니다. 필수 변수가 빠졌거나 제목이 255자를 넘으면 접수와 같은 422입니다. 발송은 하지 않습니다.
 - 삭제는 soft delete입니다. 삭제된 템플릿의 `key`는 다시 쓸 수 없습니다(과거 발송 이력이 같은 key로 다른 내용을 가리키지 않도록).
 - 목록은 id 순서의 커서 페이지네이션입니다. `nextCursor`는 불투명한 값으로 그대로 다음 요청에 전달합니다.
 - CORS를 켤 때는 브라우저 클라이언트가 읽을 수 있도록 `exposedHeaders`에 `ETag`와 `Location`을 포함해야 합니다.
