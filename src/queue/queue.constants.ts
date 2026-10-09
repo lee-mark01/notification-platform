@@ -23,6 +23,13 @@ export const SEND_QUEUES: readonly SendQueueName[] = [
   QueueNames.PushMarketing,
 ];
 
+export enum QueueRouting {
+  Split = 'split',
+  // Experiment only (scenario 13): every notification shares one FIFO queue,
+  // to measure what the split buys. Never meant for production.
+  Single = 'single',
+}
+
 export const SEND_JOB = 'send';
 
 // The job carries only the id; the worker reads the rendered content from the

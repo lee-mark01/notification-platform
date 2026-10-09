@@ -1,12 +1,13 @@
 import { NotificationCategory } from '../notifications/notification.enums';
-import { queueFor } from '../dispatch/queue-routing';
+import { queueFor, SINGLE_QUEUE } from '../dispatch/queue-routing';
 import { TemplateChannel } from '../templates/template.entity';
-import type { SendQueueName } from './queue.constants';
+import { QueueRouting, type SendQueueName } from './queue.constants';
 
 export interface RateLimitSettings {
   emailPerSecond: number;
   pushPerSecond: number;
   transactionalShare: number;
+  routing?: QueueRouting;
 }
 
 export interface QueueRateLimit {
@@ -44,6 +45,11 @@ export function rateLimits(
       max: perSecond - transactional,
       duration: 1_000,
     };
+  }
+  // The experiment's shared queue gets the whole email budget, so both
+  // set-ups send at the same total rate and only the ordering differs.
+  if (settings.routing === QueueRouting.Single) {
+    limits[SINGLE_QUEUE] = { max: settings.emailPerSecond, duration: 1_000 };
   }
   return limits;
 }

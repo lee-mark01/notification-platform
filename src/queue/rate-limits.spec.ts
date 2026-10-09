@@ -1,4 +1,4 @@
-import { QueueNames } from './queue.constants';
+import { QueueNames, QueueRouting } from './queue.constants';
 import { rateLimits } from './rate-limits';
 
 describe('rateLimits', () => {
@@ -34,5 +34,18 @@ describe('rateLimits', () => {
       expect(limits[QueueNames.EmailMarketing].max).toBeGreaterThanOrEqual(1);
       expect(limits[QueueNames.PushMarketing].max).toBeGreaterThanOrEqual(1);
     }
+  });
+
+  it('gives the single experiment queue the whole email budget', () => {
+    const limits = rateLimits({
+      emailPerSecond: 100,
+      pushPerSecond: 1_000,
+      transactionalShare: 0.3,
+      routing: QueueRouting.Single,
+    });
+    expect(limits[QueueNames.EmailTransactional]).toEqual({
+      max: 100,
+      duration: 1_000,
+    });
   });
 });

@@ -1,5 +1,9 @@
 import { NotificationCategory } from '../notifications/notification.enums';
-import { QueueNames, type SendQueueName } from '../queue/queue.constants';
+import {
+  QueueNames,
+  QueueRouting,
+  type SendQueueName,
+} from '../queue/queue.constants';
 import { TemplateChannel } from '../templates/template.entity';
 
 // A lookup table rather than a class per channel: the choice depends only on
@@ -18,9 +22,14 @@ const ROUTES: Record<
   },
 };
 
+export const SINGLE_QUEUE: SendQueueName = QueueNames.EmailTransactional;
+
 export function queueFor(
   channel: TemplateChannel,
   category: NotificationCategory,
+  routing: QueueRouting = QueueRouting.Split,
 ): SendQueueName {
-  return ROUTES[channel][category];
+  return routing === QueueRouting.Single
+    ? SINGLE_QUEUE
+    : ROUTES[channel][category];
 }

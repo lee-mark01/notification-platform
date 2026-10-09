@@ -1,4 +1,5 @@
 import { plainToInstance, Transform } from 'class-transformer';
+import { QueueRouting } from '../queue/queue.constants';
 import {
   IsBoolean,
   IsEnum,
@@ -175,6 +176,11 @@ export class EnvironmentVariables {
   @IsInt()
   @Min(0)
   RETRY_BASE_DELAY_MS: number = 2_000;
+
+  // split: one queue per channel x category (ADR-0001). single: everything
+  // on one queue, only for the priority-isolation experiment (scenario 13).
+  @IsEnum(QueueRouting)
+  QUEUE_ROUTING: QueueRouting = QueueRouting.Split;
 
   // Provider send rates per channel, split between the transactional and
   // marketing queues (src/queue/rate-limits.ts). SES starts at 1/s in the
