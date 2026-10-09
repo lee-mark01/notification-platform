@@ -72,6 +72,11 @@ export class WorkersService
     this.logger.log(`Started workers for ${this.workers.length} queues`);
   }
 
+  /** Resolves once every worker has connected (used by tests). */
+  async ready(): Promise<void> {
+    await Promise.all(this.workers.map((worker) => worker.waitUntilReady()));
+  }
+
   // Waits for jobs in progress to finish before closing (scenario 7).
   async onApplicationShutdown(): Promise<void> {
     await Promise.all(this.workers.map((worker) => worker.close()));

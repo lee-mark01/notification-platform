@@ -1,5 +1,10 @@
 import { InjectQueue } from '@nestjs/bullmq';
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  OnApplicationBootstrap,
+  OnModuleInit,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { Queue } from 'bullmq';
 import { Repository } from 'typeorm';
@@ -32,7 +37,7 @@ const REPLACEABLE = new Set(['missing', 'completed', 'failed', 'unknown']);
  * the sweeper instead of failing the request.
  */
 @Injectable()
-export class Dispatcher implements OnModuleInit {
+export class Dispatcher implements OnModuleInit, OnApplicationBootstrap {
   private readonly logger = new Logger(Dispatcher.name);
   private readonly queues: Record<SendQueueName, Queue<SendJobData>>;
   private failing = false;
@@ -63,6 +68,16 @@ export class Dispatcher implements OnModuleInit {
         }
         this.failing = true;
       });
+    }
+  }
+
+  // Connect now rather than on the first request: the first add() would
+  // otherwise also pay for connecting and the version check, and could hit
+  // DISPATCH_TIMEOUT_MS on a busy host. Not awaited, so startup does not wait
+  // for Redis.
+  onApplicationBootstrap(): void {
+    for (const queue of Object.values(this.queues)) {
+      queue.waitUntilReady().catch(() => undefined);
     }
   }
 
