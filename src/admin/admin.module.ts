@@ -10,6 +10,7 @@ import { DlqService } from './dlq/dlq.service';
 import { HistoryController } from './history/history.controller';
 import { HistoryService } from './history/history.service';
 import { ReadRatesController, ReadRatesService } from './stats/read-rates';
+import { StatsSummaryController, StatsSummaryService } from './stats/summary';
 
 @Module({
   imports: [
@@ -17,13 +18,19 @@ import { ReadRatesController, ReadRatesService } from './stats/read-rates';
     QueueModule,
     DispatchModule,
   ],
-  controllers: [DlqController, HistoryController, ReadRatesController],
+  controllers: [
+    DlqController,
+    HistoryController,
+    ReadRatesController,
+    StatsSummaryController,
+  ],
   providers: [
     AdminKeyGuard,
     NotificationTransitions,
     DlqService,
     ReadRatesService,
     HistoryService,
+    StatsSummaryService,
   ],
 })
 export class AdminModule {}
