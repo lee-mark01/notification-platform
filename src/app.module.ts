@@ -35,6 +35,7 @@ import { TemplatesModule } from './templates/templates.module';
           DB_USERNAME: config.get('DB_USERNAME', { infer: true }),
           DB_PASSWORD: config.get('DB_PASSWORD', { infer: true }),
         }),
+        poolSize: config.get('DB_POOL_SIZE', { infer: true }),
         autoLoadEntities: true,
       }),
     }),

@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="560" viewBox="0 0 960 560" font-family='"Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif'>
+<rect width="960" height="560" fill="#FFFFFF"/>
+<text x="84" y="40" font-size="22" font-weight="700" fill="#0F172A" text-anchor="start">Worker 처리량: concurrency와 DB 커넥션 풀</text>
+<text x="84" y="68" font-size="15" font-weight="400" fill="#475569" text-anchor="start">FakeProvider 100ms 고정 · 이메일 큐 하나 · 5,000건(1~20은 2,000건) · 전용 Docker 스택</text>
+<line x1="84" x2="864" y1="440" y2="440" stroke="#E2E8F0"/>
+<text x="74" y="445" font-size="14" font-weight="400" fill="#475569" text-anchor="end">0</text>
+<line x1="84" x2="864" y1="372" y2="372" stroke="#E2E8F0"/>
+<text x="74" y="377" font-size="14" font-weight="400" fill="#475569" text-anchor="end">200</text>
+<line x1="84" x2="864" y1="304" y2="304" stroke="#E2E8F0"/>
+<text x="74" y="309" font-size="14" font-weight="400" fill="#475569" text-anchor="end">400</text>
+<line x1="84" x2="864" y1="236" y2="236" stroke="#E2E8F0"/>
+<text x="74" y="241" font-size="14" font-weight="400" fill="#475569" text-anchor="end">600</text>
+<line x1="84" x2="864" y1="168" y2="168" stroke="#E2E8F0"/>
+<text x="74" y="173" font-size="14" font-weight="400" fill="#475569" text-anchor="end">800</text>
+<line x1="84" x2="864" y1="100" y2="100" stroke="#E2E8F0"/>
+<text x="74" y="105" font-size="14" font-weight="400" fill="#475569" text-anchor="end">1000</text>
+<text x="84" y="464" font-size="14" font-weight="400" fill="#475569" text-anchor="middle">1</text>
+<text x="356.5983016910473" y="464" font-size="14" font-weight="400" fill="#475569" text-anchor="middle">5</text>
+<text x="474" y="464" font-size="14" font-weight="400" fill="#475569" text-anchor="middle">10</text>
+<text x="591.4016983089525" y="464" font-size="14" font-weight="400" fill="#475569" text-anchor="middle">20</text>
+<text x="660.0772893406684" y="464" font-size="14" font-weight="400" fill="#475569" text-anchor="middle">30</text>
+<text x="746.5983016910473" y="464" font-size="14" font-weight="400" fill="#475569" text-anchor="middle">50</text>
+<text x="864" y="464" font-size="14" font-weight="400" fill="#475569" text-anchor="middle">100</text>
+<text x="474" y="492" font-size="15" font-weight="400" fill="#0F172A" text-anchor="middle">Worker concurrency (동시 처리 job 수, 로그 눈금)</text>
+<text transform="translate(26 270) rotate(-90)" font-size="15" text-anchor="middle" fill="#0F172A">처리량 (건/초)</text>
+<polyline fill="none" stroke="#94A3B8" stroke-width="2" stroke-dasharray="6 6" points="84,436.6 356.5983016910473,423 474,406 591.4016983089525,372 660.0772893406684,338 746.5983016910473,270 864,100"/>
+<polyline fill="none" stroke="#B45309" stroke-width="3" points="84,436.94 356.5983016910473,425.38 474,411.78 591.4016983089525,389.68 660.0772893406684,373.02 746.5983016910473,357.04 864,326.1"/>
+<circle cx="84" cy="436.94" r="4.5" fill="#B45309"/>
+<circle cx="356.5983016910473" cy="425.38" r="4.5" fill="#B45309"/>
+<circle cx="474" cy="411.78" r="4.5" fill="#B45309"/>
+<circle cx="591.4016983089525" cy="389.68" r="4.5" fill="#B45309"/>
+<circle cx="660.0772893406684" cy="373.02" r="4.5" fill="#B45309"/>
+<circle cx="746.5983016910473" cy="357.04" r="4.5" fill="#B45309"/>
+<circle cx="864" cy="326.1" r="4.5" fill="#B45309"/>
+<text x="668.0772893406684" y="391.02" font-size="14" font-weight="700" fill="#B45309" text-anchor="start">197/s</text>
+<text x="754.5983016910473" y="375.04" font-size="14" font-weight="700" fill="#B45309" text-anchor="start">244/s</text>
+<text x="872" y="344.1" font-size="14" font-weight="700" fill="#B45309" text-anchor="start">335/s</text>
+<polyline fill="none" stroke="#0F766E" stroke-width="3" points="660.0772893406684,357.38 746.5983016910473,303.65999999999997 864,245.18"/>
+<circle cx="660.0772893406684" cy="357.38" r="4.5" fill="#0F766E"/>
+<circle cx="746.5983016910473" cy="303.65999999999997" r="4.5" fill="#0F766E"/>
+<circle cx="864" cy="245.18" r="4.5" fill="#0F766E"/>
+<text x="668.0772893406684" y="349.38" font-size="14" font-weight="700" fill="#0F766E" text-anchor="start">243/s</text>
+<text x="754.5983016910473" y="295.65999999999997" font-size="14" font-weight="700" fill="#0F766E" text-anchor="start">401/s</text>
+<text x="872" y="237.18" font-size="14" font-weight="700" fill="#0F766E" text-anchor="start">573/s</text>
+<line x1="84" x2="112" y1="521" y2="521" stroke="#B45309" stroke-width="3" />
+<text x="122" y="526" font-size="14" font-weight="400" fill="#0F172A" text-anchor="start">풀 10 (mysql2 기본값)</text>
+<line x1="354" x2="382" y1="521" y2="521" stroke="#0F766E" stroke-width="3" />
+<text x="392" y="526" font-size="14" font-weight="400" fill="#0F172A" text-anchor="start">풀 ≥ concurrency (30·50·100)</text>
+<line x1="624" x2="652" y1="521" y2="521" stroke="#94A3B8" stroke-width="3" stroke-dasharray="6 6"/>
+<text x="662" y="526" font-size="14" font-weight="400" fill="#0F172A" text-anchor="start">이론값 = concurrency × 10/s</text>
+</svg>

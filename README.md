@@ -188,6 +188,11 @@ npm run client:create -- my-service   # API 키 발급 (한 번만 표시)
   - 장애 시나리오 3: 5xx 3번 후 성공 → `SENT`, 시도 기록 4행 (E2E)
   - 장애 시나리오 5: 5번 모두 실패 → `DEAD` + DLQ job (E2E)
 - 큐 상태는 `GET /admin/queues/metrics`(큐별 대기·처리 중·지연·실패 건수와 DLQ)와 Bull Board(`/admin/queues/board`, 브라우저는 Basic 인증에 관리자 키)로 봅니다. Bull Board는 읽기 전용입니다. Redis에서 job을 직접 고치면 DB 상태와 어긋나므로, 다시 보내기는 redrive API로만 합니다.
+
+  ![Bull Board: 큐별 job 수 (전용 스택에서 마케팅 3,000건 처리 직후)](docs/images/p7-bull-board.png)
+
+  ![Bull Board: job data에는 알림 id와 요청의 상관 ID만 있습니다](docs/images/p7-bull-board-queue.png)
+
 - 운영자는 `GET /admin/notifications`로 기간(최대 92일)·채널·유형·상태·수신자·템플릿을 조합해 발송 이력을 최신순으로 찾습니다(커서 페이지네이션).
 - 운영자는 `GET /admin/stats/summary`로 기간·채널·유형별 상태 건수, 성공률, 읽음률을 봅니다. 성공률에서 정책으로 막힌 `SUPPRESSED`와 처리 중인 건은 뺍니다(실패가 아니므로).
 - 운영자는 `GET /admin/stats/read-rates`로 템플릿·채널별 읽음률(푸시는 클릭·알림함, 이메일은 Open 이벤트 기준 근사치)을 봅니다.
@@ -238,6 +243,16 @@ npm run client:create -- my-service   # API 키 발급 (한 번만 표시)
 | 통계 요약                 | 136ms   | 56.2ms | 커버링 인덱스                                                                              |
 
 ![100만 건에서 관리자 쿼리 전후](docs/images/p6-explain.svg)
+
+## 성능
+
+전용 Docker 스택에서 FakeProvider 지연을 100ms로 고정하고 쟀습니다(개발 PC 한 대, 비교용 수치). 방법과 원자료는 [측정 문서](load/perf/README.md)에 있습니다.
+
+- **접수**: k6 가상 사용자 10명 357건/초(p95 35ms), 50명 431건/초(p95 145ms), 모두 202.
+- **Worker 병목은 DB 커넥션 풀이었습니다.** concurrency를 올릴수록 이론값 대비 효율이 0.84(10) → 0.58(50)로 떨어졌고, 풀만 10 → 50으로 바꾸자 같은 concurrency 50에서 244 → 401건/초가 됐습니다. job은 Provider 호출 중에는 커넥션을 잡지 않지만 점유와 결과 기록에서 쓰므로, 동시에 도는 job이 풀보다 많으면 기다립니다.
+- 그래서 기본 풀을 송신 큐 concurrency 합(30)으로 올렸습니다. concurrency 30에서 197 → 243건/초(+23%), job p95 120 → 102ms.
+
+![Worker 처리량: concurrency와 DB 커넥션 풀](docs/images/p7-worker-throughput.svg)
 
 ## SES 웹훅
 
