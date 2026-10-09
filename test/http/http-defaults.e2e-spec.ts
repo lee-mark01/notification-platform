@@ -5,6 +5,8 @@ import { DataSource } from 'typeorm';
 import { createTestApp } from '../support/app';
 import { createTestDataSource, resetDatabase } from '../support/database';
 
+const ADMIN = { 'X-Admin-Key': process.env.ADMIN_API_KEY as string };
+
 describe('HTTP defaults (e2e)', () => {
   let app: INestApplication<App>;
 
@@ -45,6 +47,7 @@ describe('HTTP defaults (e2e)', () => {
     beforeAll(async () => {
       const res = await request(app.getHttpServer())
         .post('/admin/templates')
+        .set(ADMIN)
         .send({
           key: 'etag-probe',
           channel: 'push',
@@ -61,7 +64,10 @@ describe('HTTP defaults (e2e)', () => {
       ['a health response', '/health/live', 200],
       ['an error response', '/admin/templates/999999', 404],
     ])('is not added to %s', async (_label, path, status) => {
-      const res = await request(app.getHttpServer()).get(path).expect(status);
+      const res = await request(app.getHttpServer())
+        .get(path)
+        .set(ADMIN)
+        .expect(status);
 
       expect(res.headers).not.toHaveProperty('etag');
     });
@@ -69,6 +75,7 @@ describe('HTTP defaults (e2e)', () => {
     it('is still the strong version tag on a single template', async () => {
       await request(app.getHttpServer())
         .get(`/admin/templates/${templateId}`)
+        .set(ADMIN)
         .expect(200)
         .expect('ETag', '"1"');
     });

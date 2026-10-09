@@ -7,16 +7,26 @@ import {
   Page,
 } from '../common/pagination/cursor';
 import { ProblemTypes } from '../common/problem/problem-types';
-import { ProblemException } from '../common/problem/problem.exception';
+import {
+  type FieldError,
+  ProblemException,
+} from '../common/problem/problem.exception';
+import { MAX_TITLE_LENGTH } from '../notifications/rendered-fields';
 import { CreateTemplateDto } from './dto/create-template.dto';
 import { ListTemplatesQuery } from './dto/list-templates.query';
+import { TemplatePreviewResponse } from './dto/preview-template.dto';
 import { UpdateTemplateDto } from './dto/update-template.dto';
 import {
   checkTemplateContent,
   type TemplateContent,
 } from './template-content.rules';
 import { checkTemplateVariables } from './rendering/template-variables.rules';
-import { Template } from './template.entity';
+import {
+  missingVariables,
+  renderTemplate,
+  type TemplateVariables,
+} from './rendering/template-renderer';
+import { Template, TemplateChannel } from './template.entity';
 import { TemplateChanges, TemplatesRepository } from './templates.repository';
 
 @Injectable()
@@ -62,6 +72,37 @@ export class TemplatesService {
   }
 
   /** Active (not deleted) template by key, or null. */
+  /**
+   * Renders the current version with the given variables, applying the same
+   * checks as intake, so an operator sees exactly what would be sent or why
+   * it would be rejected.
+   */
+  async preview(
+    id: number,
+    variables: TemplateVariables,
+  ): Promise<TemplatePreviewResponse> {
+    const template = await this.get(id);
+    const missing = missingVariables(template, variables);
+    if (missing.length > 0) {
+      throw unusable({
+        field: 'variables',
+        message: `missing required variables: ${missing.join(', ')}`,
+      });
+    }
+    const rendered = renderTemplate(template, variables);
+    const title =
+      rendered.channel === TemplateChannel.Email
+        ? rendered.subject
+        : rendered.title;
+    if (title.length > MAX_TITLE_LENGTH) {
+      throw unusable({
+        field: 'variables',
+        message: `rendered title exceeds ${MAX_TITLE_LENGTH} characters`,
+      });
+    }
+    return TemplatePreviewResponse.from(rendered);
+  }
+
   findActiveByKey(key: string): Promise<Template | null> {
     return this.templates.findActiveByKey(key);
   }
@@ -156,4 +197,12 @@ export class TemplatesService {
       `Template ${id} has changed. Fetch it again and retry with the new ETag.`,
     );
   }
+}
+
+function unusable(error: FieldError): ProblemException {
+  return new ProblemException(
+    ProblemTypes.TEMPLATE_UNUSABLE,
+    'The template cannot be rendered with these variables.',
+    { errors: [error] },
+  );
 }

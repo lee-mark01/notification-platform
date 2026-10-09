@@ -4,13 +4,13 @@ Phase 2~6에서 구현할 API의 계약이다. 이미 구현한 것은 표시했
 
 ## 인증
 
-| 대상                                                 | 방식                                                                                                | 실패 | 구현                         |
-| ---------------------------------------------------- | --------------------------------------------------------------------------------------------------- | ---- | ---------------------------- |
-| 발송 API (`/notifications`, `/notification-batches`) | `X-API-Key` 헤더 → SHA-256 해시로 `api_client` 조회                                                 | 401  | Phase 2                      |
-| 사용자 API (`/me/*`, `/devices`)                     | `Authorization: Bearer <JWT>` (HS256, `sub` = 사용자 id). 토큰은 별도 인증 서비스가 발급한다고 가정 | 401  | Phase 2·4                    |
-| 관리자 API (`/admin/*`)                              | `X-Admin-Key` 헤더, 상수 시간 비교                                                                  | 401  | DLQ 구현됨, 템플릿은 Phase 6 |
-| 웹훅 (`/webhooks/ses`)                               | SNS 메시지 서명 검증                                                                                | 403  | Phase 4                      |
-| 헬스체크                                             | 없음                                                                                                | —    | 구현됨                       |
+| 대상                                                 | 방식                                                                                                | 실패 | 구현                     |
+| ---------------------------------------------------- | --------------------------------------------------------------------------------------------------- | ---- | ------------------------ |
+| 발송 API (`/notifications`, `/notification-batches`) | `X-API-Key` 헤더 → SHA-256 해시로 `api_client` 조회                                                 | 401  | Phase 2                  |
+| 사용자 API (`/me/*`, `/devices`)                     | `Authorization: Bearer <JWT>` (HS256, `sub` = 사용자 id). 토큰은 별도 인증 서비스가 발급한다고 가정 | 401  | Phase 2·4                |
+| 관리자 API (`/admin/*`)                              | `X-Admin-Key` 헤더, 상수 시간 비교                                                                  | 401  | 구현됨 (템플릿·DLQ·통계) |
+| 웹훅 (`/webhooks/ses`)                               | SNS 메시지 서명 검증                                                                                | 403  | Phase 4                  |
+| 헬스체크                                             | 없음                                                                                                | —    | 구현됨                   |
 
 - 401 응답은 `about:blank`와 `WWW-Authenticate` 헤더를 쓴다.
 - 클라이언트·사용자는 자기 리소스만 볼 수 있다. 남의 리소스는 존재를 숨기기 위해 403이 아니라 404로 응답한다.
@@ -235,19 +235,19 @@ Location: /notifications/1024
 
 ## 관리자 API
 
-| 메서드·경로                              | 용도                                                                                                                           | 구현                     |
-| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | ------------------------ |
-| `POST/GET/PATCH/DELETE /admin/templates` | 템플릿 CRUD (ETag·If-Match)                                                                                                    | 구현됨 (Guard는 Phase 6) |
-| `POST /admin/templates/{id}/preview`     | 변수를 넣어 렌더링 미리보기                                                                                                    | Phase 6                  |
-| `GET /admin/notifications`               | 발송 이력 검색: `from`, `to`, `channel`, `category`, `status`, `clientId`, `userId`, `email`, `templateKey`, `limit`, `cursor` | Phase 6                  |
-| `GET /admin/suppressions`                | 수신거부 목록 (`email`, `reason`, `active` 필터)                                                                               | Phase 6                  |
-| `POST /admin/suppressions`               | 관리자 등록 `{ email, note }` → 201                                                                                            | Phase 6                  |
-| `DELETE /admin/suppressions/{email}`     | 해제 (`released_at` 기록) → 204                                                                                                | Phase 6                  |
-| `GET /admin/stats/summary`               | `from`, `to`, `groupBy=channel,category` → 상태별 건수, 성공률, 읽음률                                                         | Phase 6                  |
-| `GET /admin/stats/read-rates`            | `from`, `to`(기본 최근 7일, 최대 92일) → 템플릿·채널별 발송 수, 읽음 수, 읽음률. 이메일은 Open 이벤트 기준이라 근사치          | 구현됨                   |
-| `GET /admin/dlq`                         | DEAD 알림 목록 (커서, 오래된 순)                                                                                               | 구현됨                   |
-| `POST /admin/dlq/redrive`                | `{ "notificationIds": [..] }`(1~100개) → 각 알림 T8(DEAD → QUEUED) 후 재등록. 응답 `{ "redriven": n, "skipped": [..] }`        | 구현됨                   |
-| `GET /admin/queues/metrics`              | 큐별 waiting·active·delayed·failed, DLQ 건수                                                                                   | Phase 7                  |
+| 메서드·경로                              | 용도                                                                                                                           | 구현    |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | ------- |
+| `POST/GET/PATCH/DELETE /admin/templates` | 템플릿 CRUD (ETag·If-Match)                                                                                                    | 구현됨  |
+| `POST /admin/templates/{id}/preview`     | `{ variables }` → 접수와 같은 규칙으로 렌더링한 결과(채널별 필드). 누락 변수·긴 제목은 422 `template-unusable`                 | 구현됨  |
+| `GET /admin/notifications`               | 발송 이력 검색: `from`, `to`, `channel`, `category`, `status`, `clientId`, `userId`, `email`, `templateKey`, `limit`, `cursor` | Phase 6 |
+| `GET /admin/suppressions`                | 수신거부 목록 (`email`, `reason`, `active` 필터)                                                                               | Phase 6 |
+| `POST /admin/suppressions`               | 관리자 등록 `{ email, note }` → 201                                                                                            | Phase 6 |
+| `DELETE /admin/suppressions/{email}`     | 해제 (`released_at` 기록) → 204                                                                                                | Phase 6 |
+| `GET /admin/stats/summary`               | `from`, `to`, `groupBy=channel,category` → 상태별 건수, 성공률, 읽음률                                                         | Phase 6 |
+| `GET /admin/stats/read-rates`            | `from`, `to`(기본 최근 7일, 최대 92일) → 템플릿·채널별 발송 수, 읽음 수, 읽음률. 이메일은 Open 이벤트 기준이라 근사치          | 구현됨  |
+| `GET /admin/dlq`                         | DEAD 알림 목록 (커서, 오래된 순)                                                                                               | 구현됨  |
+| `POST /admin/dlq/redrive`                | `{ "notificationIds": [..] }`(1~100개) → 각 알림 T8(DEAD → QUEUED) 후 재등록. 응답 `{ "redriven": n, "skipped": [..] }`        | 구현됨  |
+| `GET /admin/queues/metrics`              | 큐별 waiting·active·delayed·failed, DLQ 건수                                                                                   | Phase 7 |
 
 - 목록은 모두 커서 페이지네이션(`{ items, nextCursor }`).
 - redrive는 이미 DEAD가 아닌 알림을 건너뛰고(`skipped`), 같은 요청을 반복해도 안전하다.
