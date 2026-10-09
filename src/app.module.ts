@@ -11,6 +11,7 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { WorkerModule } from './queue/worker.module';
 import { RedisModule } from './redis/redis.module';
 import { SweeperModule } from './sweeper/sweeper.module';
+import { WebhooksModule } from './webhooks/webhooks.module';
 import { TemplatesModule } from './templates/templates.module';
 
 @Module({
@@ -41,6 +42,7 @@ import { TemplatesModule } from './templates/templates.module';
     MeModule,
     AdminModule,
     SweeperModule,
+    WebhooksModule,
     WorkerModule,
   ],
 })

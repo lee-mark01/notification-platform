@@ -145,6 +145,13 @@ export class EnvironmentVariables {
   @IsNotEmpty()
   FIREBASE_PROJECT_ID?: string;
 
+  // The SNS topic SES events arrive from. Messages from any other topic are
+  // rejected; unset, the webhook accepts nothing.
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  SNS_TOPIC_ARN?: string;
+
   // Comma-separated browser origins allowed to call the API (the web push
   // demo page). Empty disables CORS.
   @IsString()

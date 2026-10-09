@@ -51,6 +51,11 @@ export const ProblemTypes = {
     title: 'The recipient cannot be resolved',
     status: HttpStatus.UNPROCESSABLE_ENTITY,
   },
+  WEBHOOK_REJECTED: {
+    type: '/problems/webhook-rejected',
+    title: 'The webhook message could not be verified',
+    status: HttpStatus.FORBIDDEN,
+  },
   PRECONDITION_FAILED: {
     type: '/problems/precondition-failed',
     title: 'The resource was modified; If-Match does not match its ETag',

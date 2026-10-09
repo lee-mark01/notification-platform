@@ -18,6 +18,8 @@ export function configureApp(app: NestExpressApplication): void {
   // would otherwise add weak body-hash ETags to every GET response.
   app.set('etag', false);
 
+  // SNS posts its JSON with Content-Type text/plain (POST /webhooks/ses).
+  app.useBodyParser('text', { type: 'text/plain', limit: '256kb' });
   app.useGlobalPipes(createValidationPipe());
   app.useGlobalFilters(new ProblemDetailsFilter());
 
