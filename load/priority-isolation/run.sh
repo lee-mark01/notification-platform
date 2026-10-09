@@ -10,6 +10,8 @@ set -euo pipefail
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$DIR/../.." && pwd)"
 API="http://localhost:13000"
+# Throwaway value from chaos/compose.yml, not a secret.
+ADMIN_KEY="chaos-admin-key-not-used-anywhere-else"
 compose() {
   docker compose -p np-exp -f "$ROOT/chaos/compose.yml" -f "$DIR/compose.yml" "$@"
 }
@@ -34,6 +36,7 @@ run() {
   key=$(compose exec -T api node dist/cli/create-api-client.js experiment |
     sed -n 's/^X-API-Key: //p' | tr -d '\r')
   curl -sf -X POST "$API/admin/templates" -H 'Content-Type: application/json' \
+    -H "X-Admin-Key: $ADMIN_KEY" \
     -d '{"key":"exp","channel":"email","subject":"Code {{n}}","htmlBody":"<p>{{n}}</p>","textBody":"{{n}}","requiredVariables":["n"]}' \
     >/dev/null
 
