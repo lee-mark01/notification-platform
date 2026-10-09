@@ -20,7 +20,7 @@ const MAX_STRING_VALUE = 2000;
 
 // Flat map of identifier -> string | number | boolean, matching what
 // templates can reference with {{name}}.
-function IsTemplateVariables() {
+export function IsTemplateVariables() {
   return ValidateBy({
     name: 'isTemplateVariables',
     validator: {

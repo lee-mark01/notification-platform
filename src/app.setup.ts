@@ -18,6 +18,9 @@ export function configureApp(app: NestExpressApplication): void {
   // would otherwise add weak body-hash ETags to every GET response.
   app.set('etag', false);
 
+  // POST /notification-batches takes up to 10,000 recipients; Express's
+  // default JSON limit is 100kb.
+  app.useBodyParser('json', { limit: '5mb' });
   // SNS posts its JSON with Content-Type text/plain (POST /webhooks/ses).
   app.useBodyParser('text', { type: 'text/plain', limit: '256kb' });
   app.useGlobalPipes(createValidationPipe());
