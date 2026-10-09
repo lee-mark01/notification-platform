@@ -1,5 +1,6 @@
 import { MySqlContainer, StartedMySqlContainer } from '@testcontainers/mysql';
 import { RedisContainer, StartedRedisContainer } from '@testcontainers/redis';
+import { MYSQL_IMAGE, REDIS_IMAGE } from '../support/images';
 
 declare global {
   var __MYSQL_CONTAINER__: StartedMySqlContainer | undefined;
@@ -7,11 +8,6 @@ declare global {
 }
 
 export const MIGRATION_TEST_DATABASE = 'migration_test';
-
-// Docker's official images, pulled from their ECR Public mirror: CI runners
-// share IPs and hit Docker Hub's anonymous pull limit. Same images.
-const MYSQL_IMAGE = 'public.ecr.aws/docker/library/mysql:8.4';
-const REDIS_IMAGE = 'public.ecr.aws/docker/library/redis:7.4-alpine';
 
 // One MySQL and one Redis container for the whole E2E run. Tests run
 // serially (--runInBand), so they can share them without interfering.

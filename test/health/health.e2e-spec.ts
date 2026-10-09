@@ -4,6 +4,7 @@ import { createServer } from 'node:net';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { createTestApp } from '../support/app';
+import { MYSQL_IMAGE } from '../support/images';
 
 interface HealthBody {
   status: 'ok' | 'error';
@@ -107,7 +108,7 @@ describe('Health (e2e)', () => {
 
     beforeAll(async () => {
       // A dedicated container, so stopping it does not affect other suites.
-      mysql = await new MySqlContainer('mysql:8.4')
+      mysql = await new MySqlContainer(MYSQL_IMAGE)
         .withDatabase('health_test')
         .withUsername('app')
         .withUserPassword('app_password')
