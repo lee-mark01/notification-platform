@@ -67,6 +67,7 @@ export class WorkersService
       transactionalShare: this.config.get('TRANSACTIONAL_RATE_SHARE', {
         infer: true,
       }),
+      routing: this.config.get('QUEUE_ROUTING', { infer: true }),
     });
     for (const [name, concurrency] of Object.entries(CONCURRENCY)) {
       const worker = new Worker<SendJobData>(

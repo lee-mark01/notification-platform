@@ -5,14 +5,17 @@ import {
   OnApplicationBootstrap,
   OnModuleInit,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { Queue } from 'bullmq';
 import { In, Repository } from 'typeorm';
+import type { EnvironmentVariables } from '../config/env.validation';
 import { Notification } from '../notifications/notification.entity';
 import { NotificationStatus } from '../notifications/notification.enums';
 import {
   jobIdFor,
   QueueNames,
+  QueueRouting,
   SEND_JOB,
   type SendJobData,
   type SendQueueName,
@@ -44,6 +47,7 @@ export class Dispatcher implements OnModuleInit, OnApplicationBootstrap {
   private readonly logger = new Logger(Dispatcher.name);
   private readonly queues: Record<SendQueueName, Queue<SendJobData>>;
   private failing = false;
+  private readonly routing: QueueRouting;
 
   constructor(
     @InjectQueue(QueueNames.EmailTransactional) emailTransactional: Queue,
@@ -52,7 +56,9 @@ export class Dispatcher implements OnModuleInit, OnApplicationBootstrap {
     @InjectQueue(QueueNames.PushMarketing) pushMarketing: Queue,
     @InjectRepository(Notification)
     private readonly notifications: Repository<Notification>,
+    config: ConfigService<EnvironmentVariables, true>,
   ) {
+    this.routing = config.get('QUEUE_ROUTING', { infer: true });
     this.queues = {
       [QueueNames.EmailTransactional]: emailTransactional,
       [QueueNames.EmailMarketing]: emailMarketing,
@@ -86,8 +92,7 @@ export class Dispatcher implements OnModuleInit, OnApplicationBootstrap {
 
   /** Returns true if the job was added; false leaves it for the sweeper. */
   async dispatch(notification: DispatchTarget): Promise<boolean> {
-    const queue =
-      this.queues[queueFor(notification.channel, notification.category)];
+    const queue = this.queueOf(notification);
     try {
       await withTimeout(
         queue.add(
@@ -120,7 +125,7 @@ export class Dispatcher implements OnModuleInit, OnApplicationBootstrap {
     if (targets.length === 0) return true;
     const byQueue = new Map<SendQueueName, DispatchTarget[]>();
     for (const target of targets) {
-      const name = queueFor(target.channel, target.category);
+      const name = queueFor(target.channel, target.category, this.routing);
       byQueue.set(name, [...(byQueue.get(name) ?? []), target]);
     }
     try {
@@ -152,6 +157,10 @@ export class Dispatcher implements OnModuleInit, OnApplicationBootstrap {
     return true;
   }
 
+  private queueOf(target: DispatchTarget): Queue<SendJobData> {
+    return this.queues[queueFor(target.channel, target.category, this.routing)];
+  }
+
   /** T1. Conditional: a worker may already have moved it to SENDING. */
   async markQueued(id: number): Promise<void> {
     await this.notifications.update(
@@ -166,8 +175,7 @@ export class Dispatcher implements OnModuleInit, OnApplicationBootstrap {
    * to the back of the queue); a missing or finished one is replaced.
    */
   async ensureJob(notification: DispatchTarget): Promise<EnsureJobResult> {
-    const queue =
-      this.queues[queueFor(notification.channel, notification.category)];
+    const queue = this.queueOf(notification);
     const jobId = jobIdFor(notification.id);
     try {
       return await withTimeout(
@@ -200,8 +208,7 @@ export class Dispatcher implements OnModuleInit, OnApplicationBootstrap {
    * already moved the status; on failure the sweeper re-adds it later.
    */
   async requeue(notification: DispatchTarget): Promise<boolean> {
-    const queue =
-      this.queues[queueFor(notification.channel, notification.category)];
+    const queue = this.queueOf(notification);
     const jobId = jobIdFor(notification.id);
     try {
       await withTimeout(

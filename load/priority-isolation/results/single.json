@@ -1,0 +1,218 @@
+{
+  "routing": "single",
+  "marketing": 10000,
+  "marketingDrainMs": 108296,
+  "verifications": [
+    {
+      "id": 10001,
+      "acceptedAfterBatchMs": 3713,
+      "waitMs": 103665
+    },
+    {
+      "id": 10002,
+      "acceptedAfterBatchMs": 4685,
+      "waitMs": 102714
+    },
+    {
+      "id": 10003,
+      "acceptedAfterBatchMs": 5669,
+      "waitMs": 101744
+    },
+    {
+      "id": 10004,
+      "acceptedAfterBatchMs": 6644,
+      "waitMs": 100787
+    },
+    {
+      "id": 10005,
+      "acceptedAfterBatchMs": 7617,
+      "waitMs": 99821
+    },
+    {
+      "id": 10006,
+      "acceptedAfterBatchMs": 8587,
+      "waitMs": 98854
+    },
+    {
+      "id": 10007,
+      "acceptedAfterBatchMs": 9574,
+      "waitMs": 97868
+    },
+    {
+      "id": 10008,
+      "acceptedAfterBatchMs": 10546,
+      "waitMs": 96898
+    },
+    {
+      "id": 10009,
+      "acceptedAfterBatchMs": 11524,
+      "waitMs": 95924
+    },
+    {
+      "id": 10010,
+      "acceptedAfterBatchMs": 12503,
+      "waitMs": 94945
+    },
+    {
+      "id": 10011,
+      "acceptedAfterBatchMs": 13478,
+      "waitMs": 93973
+    },
+    {
+      "id": 10012,
+      "acceptedAfterBatchMs": 14457,
+      "waitMs": 93007
+    },
+    {
+      "id": 10013,
+      "acceptedAfterBatchMs": 15443,
+      "waitMs": 92034
+    },
+    {
+      "id": 10014,
+      "acceptedAfterBatchMs": 16430,
+      "waitMs": 91075
+    },
+    {
+      "id": 10015,
+      "acceptedAfterBatchMs": 19420,
+      "waitMs": 88094
+    },
+    {
+      "id": 10016,
+      "acceptedAfterBatchMs": 20396,
+      "waitMs": 87120
+    },
+    {
+      "id": 10017,
+      "acceptedAfterBatchMs": 21380,
+      "waitMs": 86139
+    },
+    {
+      "id": 10018,
+      "acceptedAfterBatchMs": 22358,
+      "waitMs": 85163
+    },
+    {
+      "id": 10019,
+      "acceptedAfterBatchMs": 23341,
+      "waitMs": 84184
+    },
+    {
+      "id": 10020,
+      "acceptedAfterBatchMs": 24311,
+      "waitMs": 83212
+    },
+    {
+      "id": 10021,
+      "acceptedAfterBatchMs": 25285,
+      "waitMs": 82240
+    },
+    {
+      "id": 10022,
+      "acceptedAfterBatchMs": 26254,
+      "waitMs": 81279
+    },
+    {
+      "id": 10023,
+      "acceptedAfterBatchMs": 27225,
+      "waitMs": 80317
+    },
+    {
+      "id": 10024,
+      "acceptedAfterBatchMs": 28195,
+      "waitMs": 79379
+    },
+    {
+      "id": 10025,
+      "acceptedAfterBatchMs": 29175,
+      "waitMs": 78411
+    },
+    {
+      "id": 10026,
+      "acceptedAfterBatchMs": 30154,
+      "waitMs": 77436
+    },
+    {
+      "id": 10027,
+      "acceptedAfterBatchMs": 31122,
+      "waitMs": 76465
+    },
+    {
+      "id": 10028,
+      "acceptedAfterBatchMs": 32104,
+      "waitMs": 75487
+    },
+    {
+      "id": 10029,
+      "acceptedAfterBatchMs": 33084,
+      "waitMs": 74507
+    },
+    {
+      "id": 10030,
+      "acceptedAfterBatchMs": 34043,
+      "waitMs": 73553
+    },
+    {
+      "id": 10031,
+      "acceptedAfterBatchMs": 35024,
+      "waitMs": 72574
+    },
+    {
+      "id": 10032,
+      "acceptedAfterBatchMs": 35980,
+      "waitMs": 71626
+    },
+    {
+      "id": 10033,
+      "acceptedAfterBatchMs": 36934,
+      "waitMs": 70676
+    },
+    {
+      "id": 10034,
+      "acceptedAfterBatchMs": 37919,
+      "waitMs": 69723
+    },
+    {
+      "id": 10035,
+      "acceptedAfterBatchMs": 38905,
+      "waitMs": 68752
+    },
+    {
+      "id": 10036,
+      "acceptedAfterBatchMs": 39896,
+      "waitMs": 67764
+    },
+    {
+      "id": 10037,
+      "acceptedAfterBatchMs": 40875,
+      "waitMs": 66789
+    },
+    {
+      "id": 10038,
+      "acceptedAfterBatchMs": 41844,
+      "waitMs": 65822
+    },
+    {
+      "id": 10039,
+      "acceptedAfterBatchMs": 42823,
+      "waitMs": 64841
+    },
+    {
+      "id": 10040,
+      "acceptedAfterBatchMs": 43805,
+      "waitMs": 63862
+    }
+  ],
+  "batch": {
+    "id": 1,
+    "status": "ENQUEUED",
+    "channel": "email",
+    "category": "marketing",
+    "totalCount": 10000,
+    "byStatus": {
+      "SENT": 10000
+    },
+    "createdAt": "2026-10-09T14:13:12.710Z"
+  }
+}

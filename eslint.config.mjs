@@ -46,4 +46,9 @@ export default defineConfig(
       },
     },
   },
+  {
+    // Plain Node scripts for load experiments, outside tsconfig.
+    files: ['load/**/*.mjs'],
+    extends: [tseslint.configs.disableTypeChecked],
+  },
 );

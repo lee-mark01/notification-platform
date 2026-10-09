@@ -1,0 +1,218 @@
+{
+  "routing": "split",
+  "marketing": 10000,
+  "marketingDrainMs": 155512,
+  "verifications": [
+    {
+      "id": 10001,
+      "acceptedAfterBatchMs": 3825,
+      "waitMs": 71
+    },
+    {
+      "id": 10002,
+      "acceptedAfterBatchMs": 4796,
+      "waitMs": 111
+    },
+    {
+      "id": 10003,
+      "acceptedAfterBatchMs": 5767,
+      "waitMs": 75
+    },
+    {
+      "id": 10004,
+      "acceptedAfterBatchMs": 6750,
+      "waitMs": 71
+    },
+    {
+      "id": 10005,
+      "acceptedAfterBatchMs": 7734,
+      "waitMs": 75
+    },
+    {
+      "id": 10006,
+      "acceptedAfterBatchMs": 8717,
+      "waitMs": 72
+    },
+    {
+      "id": 10007,
+      "acceptedAfterBatchMs": 9696,
+      "waitMs": 70
+    },
+    {
+      "id": 10008,
+      "acceptedAfterBatchMs": 10682,
+      "waitMs": 71
+    },
+    {
+      "id": 10009,
+      "acceptedAfterBatchMs": 11654,
+      "waitMs": 73
+    },
+    {
+      "id": 10010,
+      "acceptedAfterBatchMs": 12634,
+      "waitMs": 72
+    },
+    {
+      "id": 10011,
+      "acceptedAfterBatchMs": 13596,
+      "waitMs": 73
+    },
+    {
+      "id": 10012,
+      "acceptedAfterBatchMs": 14558,
+      "waitMs": 70
+    },
+    {
+      "id": 10013,
+      "acceptedAfterBatchMs": 15530,
+      "waitMs": 72
+    },
+    {
+      "id": 10014,
+      "acceptedAfterBatchMs": 16490,
+      "waitMs": 69
+    },
+    {
+      "id": 10015,
+      "acceptedAfterBatchMs": 17440,
+      "waitMs": 66
+    },
+    {
+      "id": 10016,
+      "acceptedAfterBatchMs": 18396,
+      "waitMs": 74
+    },
+    {
+      "id": 10017,
+      "acceptedAfterBatchMs": 19353,
+      "waitMs": 74
+    },
+    {
+      "id": 10018,
+      "acceptedAfterBatchMs": 20307,
+      "waitMs": 67
+    },
+    {
+      "id": 10019,
+      "acceptedAfterBatchMs": 21274,
+      "waitMs": 75
+    },
+    {
+      "id": 10020,
+      "acceptedAfterBatchMs": 22260,
+      "waitMs": 74
+    },
+    {
+      "id": 10021,
+      "acceptedAfterBatchMs": 23236,
+      "waitMs": 81
+    },
+    {
+      "id": 10022,
+      "acceptedAfterBatchMs": 24222,
+      "waitMs": 69
+    },
+    {
+      "id": 10023,
+      "acceptedAfterBatchMs": 25202,
+      "waitMs": 75
+    },
+    {
+      "id": 10024,
+      "acceptedAfterBatchMs": 26177,
+      "waitMs": 74
+    },
+    {
+      "id": 10025,
+      "acceptedAfterBatchMs": 27166,
+      "waitMs": 72
+    },
+    {
+      "id": 10026,
+      "acceptedAfterBatchMs": 28143,
+      "waitMs": 75
+    },
+    {
+      "id": 10027,
+      "acceptedAfterBatchMs": 29118,
+      "waitMs": 72
+    },
+    {
+      "id": 10028,
+      "acceptedAfterBatchMs": 30090,
+      "waitMs": 70
+    },
+    {
+      "id": 10029,
+      "acceptedAfterBatchMs": 31076,
+      "waitMs": 916
+    },
+    {
+      "id": 10030,
+      "acceptedAfterBatchMs": 34029,
+      "waitMs": 76
+    },
+    {
+      "id": 10031,
+      "acceptedAfterBatchMs": 35013,
+      "waitMs": 81
+    },
+    {
+      "id": 10032,
+      "acceptedAfterBatchMs": 35997,
+      "waitMs": 82
+    },
+    {
+      "id": 10033,
+      "acceptedAfterBatchMs": 36975,
+      "waitMs": 69
+    },
+    {
+      "id": 10034,
+      "acceptedAfterBatchMs": 37959,
+      "waitMs": 79
+    },
+    {
+      "id": 10035,
+      "acceptedAfterBatchMs": 38931,
+      "waitMs": 70
+    },
+    {
+      "id": 10036,
+      "acceptedAfterBatchMs": 39902,
+      "waitMs": 65
+    },
+    {
+      "id": 10037,
+      "acceptedAfterBatchMs": 40869,
+      "waitMs": 66
+    },
+    {
+      "id": 10038,
+      "acceptedAfterBatchMs": 41840,
+      "waitMs": 70
+    },
+    {
+      "id": 10039,
+      "acceptedAfterBatchMs": 42811,
+      "waitMs": 75
+    },
+    {
+      "id": 10040,
+      "acceptedAfterBatchMs": 43786,
+      "waitMs": 69
+    }
+  ],
+  "batch": {
+    "id": 1,
+    "status": "ENQUEUED",
+    "channel": "email",
+    "category": "marketing",
+    "totalCount": 10000,
+    "byStatus": {
+      "SENT": 10000
+    },
+    "createdAt": "2026-10-09T14:09:14.646Z"
+  }
+}

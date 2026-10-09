@@ -44,10 +44,10 @@ flowchart LR
 | 7   | Worker 정상 종료(SIGTERM)        | 진행 중 job 완료 후 종료, 남은 SENDING 0, stall 0                  | [chaos](chaos/README.md) + E2E [`shutdown`](test/queue/shutdown.e2e-spec.ts)       |
 | 8   | 수신거부 사용자에게 발송         | SUPPRESSED, 시도 0회                                               | E2E [`send-policy`](test/queue/send-policy.e2e-spec.ts)                            |
 | 9   | 등록되지 않은 FCM 토큰           | 재시도 없이 토큰 비활성화                                          | E2E [`push-tokens`](test/queue/push-tokens.e2e-spec.ts)                            |
-| 10  | 같은 SNS 메시지 2번              | 예정 (Phase 4, 웹훅)                                               |                                                                                    |
-| 11  | 서명이 위조된 SNS 요청           | 예정 (Phase 4)                                                     |                                                                                    |
-| 12  | 같은 읽음 요청 반복              | 예정 (Phase 4, 알림함)                                             |                                                                                    |
-| 13  | 마케팅 대량 발송 중 인증 메일    | 예정 (Phase 5, 큐 분리 효과 측정)                                  |                                                                                    |
+| 10  | 같은 SNS 메시지 2번              | 1번만 저장·반영, 두 번째도 200                                     | E2E [`sns-webhook`](test/webhooks/sns-webhook.e2e-spec.ts)                         |
+| 11  | 서명이 위조된 SNS 요청           | 다른 키·변조·다른 토픽·SNS 밖 인증서 → 403, 0건 저장               | E2E [`sns-webhook`](test/webhooks/sns-webhook.e2e-spec.ts)                         |
+| 12  | 같은 읽음 요청 반복              | 첫 읽음 시각 유지                                                  | E2E [`inbox`](test/inbox/inbox.e2e-spec.ts)                                        |
+| 13  | 마케팅 대량 발송 중 인증 메일    | 인증 메일 대기 p50: 단일 큐 82초 → 큐 분리 0.07초                  | [실험](load/priority-isolation/README.md)                                          |
 
 SES와 FCM에는 멱등 키가 없어 exactly-once는 불가능합니다. 전달 보장은 at-least-once이고, 중복이 생기는 구간(발송 완료 직후 결과 기록 전에 Worker가 죽는 경우)을 [ADR-0002](docs/adr/0002-delivery-guarantee-and-idempotency.md)에 정의했습니다.
 
@@ -175,7 +175,7 @@ npm run client:create -- my-service   # API 키 발급 (한 번만 표시)
 2. Provider 호출: DB 트랜잭션 밖에서
 3. 결과 기록: 상태(`SENT`·`RETRYING`·`FAILED`)와 `delivery_attempt` 1행을 한 트랜잭션으로
 
-- 같은 알림의 job이 두 번 실행돼도 발송은 한 번입니다. 이미 `SENT`면 건너뛰고, 다른 Worker가 lease를 잡고 있으면 Provider를 부르지 않고 job을 실패시킵니다(E2E로 확인).
+- 같은 알림의 job이 두 번 실행돼도 발송은 한 번입니다. 이미 `SENT`면 건너뛰고, 다른 Worker가 lease를 잡고 있으면 Provider를 부르지 않고 lease가 끝날 때까지 job을 미룹니다(E2E로 확인).
 - Provider는 공통 인터페이스 뒤에 있습니다(어댑터 패턴). 테스트는 결과·지연·실패율을 주입할 수 있는 `FakeProvider`를 씁니다. 채널별 Provider는 `EMAIL_PROVIDER`, `PUSH_PROVIDER`로 고릅니다.
 - 실제 이메일은 `EMAIL_PROVIDER=ses`로 AWS SES v2(서울 리전, 샌드박스)를 통해 보냅니다. SES SDK의 자체 재시도는 끄고(`maxAttempts: 1`) 재시도는 큐가 맡습니다. 그래야 시도마다 `delivery_attempt`에 남고 백오프가 한곳에서 관리됩니다. 메일박스 시뮬레이터 주소로 보내 `SENT`와 SES `MessageId` 저장을 확인했습니다.
 - SES 오류 분류: 스로틀링·한도·SES 내부 오류·네트워크 오류는 일시 오류, `MessageRejected`·`BadRequestException`(잘못된 주소, 샌드박스의 미인증 수신자)은 영구 오류입니다. 계정 정지·발송 일시 중지처럼 메시지 탓이 아닌 오류는 일시 오류로 분류해 DLQ에서 다시 보낼 수 있게 했습니다.
@@ -197,6 +197,30 @@ npm run client:create -- my-service   # API 키 발급 (한 번만 표시)
   - 장애 시나리오 8: 수신거부 주소 → `SUPPRESSED`, 시도 기록 0행 (E2E)
   - 장애 시나리오 4: Provider가 주소 자체를 거부 → 재시도 없이 `FAILED` + 수신거부 등록, 다음 알림은 Provider 전에 차단 (E2E)
   - 마케팅은 사전 동의한 사용자에게만 보냅니다(`PUT /me/marketing-consent`). 사용자 정보가 없는 주소로 가는 마케팅은 동의를 확인할 수 없어 보내지 않습니다.
+
+## 대량 발송
+
+`POST /notification-batches`로 수신자 최대 10,000명을 한 번에 접수합니다. `Idempotency-Key` 규칙은 단건과 같습니다.
+
+- 전부 아니면 전무: 수신자를 모두 검증·렌더링한 뒤, 하나라도 쓸 수 없으면 아무것도 접수하지 않고 `recipients[3].userId`처럼 위치로 알려 줍니다.
+- 배치 행과 알림 N행을 한 트랜잭션에서 500행씩 다중 INSERT로 저장하고 202를 돌려줍니다. 큐 등록은 응답 뒤에 500건씩 `addBulk`로 합니다. 진행은 `GET /notification-batches/{id}`의 `status`와 상태별 건수(`byStatus`)로 봅니다.
+- 다중 INSERT 뒤 id를 "첫 id + i"로 계산하지 않습니다. MySQL 8 기본 설정은 동시 insert가 있으면 연속 id를 보장하지 않기 때문에 `batch_id`로 다시 조회합니다.
+- 등록이 중간에 멈추면(프로세스 종료, Redis 다운) Sweeper가 진행이 멈춘 배치를 찾아 이어서 등록합니다([ADR-0003](docs/adr/0003-sweeper-over-outbox.md#대량-발송에-적용-pr-73)).
+- 1만 명 접수는 로컬에서 약 2.4초입니다. 처음 4.9초였는데, 구간별로 재 보니 수신자마다 템플릿을 다시 컴파일하는 데 2.6초를 쓰고 있어 컴파일 결과를 캐시했습니다.
+- 발송 속도는 Provider 한도 안에서 큐별로 제한합니다. SES 한도는 계정 단위라 이메일 한도(`EMAIL_RATE_PER_SEC`)를 거래성 30%, 마케팅 70%로 나눠 BullMQ `limiter`로 겁니다([ADR-0005](docs/adr/0005-job-retention-and-rate-limits.md)).
+
+### 큐 분리 효과 (장애 시나리오 13)
+
+마케팅 1만 건이 밀려 있는 동안 인증 메일 40건을 1초 간격으로 보내, 큐를 나눈 현재 구조와 모든 알림을 한 큐에 넣는 비교 구성(`QUEUE_ROUTING=single`)을 같은 한도(초당 100건)에서 비교했습니다. 방법과 원자료는 [실험 문서](load/priority-isolation/README.md)에 있습니다.
+
+| 구성    | 인증 메일 대기 p50 | p95    | 마케팅 1만 건 소진 |
+| ------- | ------------------ | ------ | ------------------ |
+| 큐 분리 | 0.07초             | 0.08초 | 156초              |
+| 단일 큐 | 82초               | 102초  | 108초              |
+
+큐를 나누면 인증 메일은 마케팅 적체와 상관없이 바로 나갑니다. 대신 거래성 몫(30%)을 비워 두므로 마케팅은 더 오래 걸립니다. 인증 메일이 늦으면 가입이 막히고 마케팅이 1분 늦는 것은 문제가 되지 않아 이 비용을 받아들였습니다.
+
+![큐 분리 전후 인증 메일 대기 시간](docs/images/p5-priority-isolation.svg)
 
 ## SES 웹훅
 
