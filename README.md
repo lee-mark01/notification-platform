@@ -5,7 +5,7 @@
 이메일(AWS SES)과 푸시(FCM)를 하나의 인터페이스로 발송하는 알림 플랫폼입니다.
 재시도, Dead Letter Queue, 멱등성, 웹훅 기반 상태 추적을 갖추는 것을 목표로 합니다.
 
-> 개발 진행 중입니다. 기반(Phase 0)과 설계(Phase 1)를 마쳤고, 다음은 큐와 Worker를 통한 실제 발송입니다.
+> 개발 진행 중입니다. 기반(Phase 0), 설계(Phase 1), 실제 SES·FCM 발송까지의 정상 흐름(Phase 2)을 마쳤고, 지금은 재시도·DLQ·Sweeper 같은 실패 처리(Phase 3)를 만들고 있습니다.
 
 ## 기술 스택
 
@@ -125,7 +125,10 @@ npm run client:create -- my-service   # API 키 발급 (한 번만 표시)
 - 실제 이메일은 `EMAIL_PROVIDER=ses`로 AWS SES v2(서울 리전, 샌드박스)를 통해 보냅니다. SES SDK의 자체 재시도는 끄고(`maxAttempts: 1`) 재시도는 큐가 맡습니다. 그래야 시도마다 `delivery_attempt`에 남고 백오프가 한곳에서 관리됩니다. 메일박스 시뮬레이터 주소로 보내 `SENT`와 SES `MessageId` 저장을 확인했습니다.
 - SES 오류 분류: 스로틀링·한도·SES 내부 오류·네트워크 오류는 일시 오류, `MessageRejected`·`BadRequestException`(잘못된 주소, 샌드박스의 미인증 수신자)은 영구 오류입니다. 계정 정지·발송 일시 중지처럼 메시지 탓이 아닌 오류는 일시 오류로 분류해 DLQ에서 다시 보낼 수 있게 했습니다.
 - `WORKERS_ENABLED=false`면 API만 띄웁니다.
-- 재시도 횟수·백오프·DLQ·수신거부 검사는 Phase 3에서 추가합니다.
+- 실패는 일시·영구로 분류합니다. 일시 오류는 지수 백오프 + jitter(기본 2초부터, 최대 5번 시도)로 재시도하고, 마지막 시도까지 실패하면 `DEAD`로 바꿔 DLQ(`notification-dlq`)로 옮깁니다. 영구 오류는 재시도 없이 `FAILED`입니다.
+  - 장애 시나리오 3: 5xx 3번 후 성공 → `SENT`, 시도 기록 4행 (E2E)
+  - 장애 시나리오 5: 5번 모두 실패 → `DEAD` + DLQ job (E2E)
+- DLQ redrive, Sweeper, 수신거부 검사는 Phase 3에서 이어서 추가합니다.
 
 ## 사용자 API
 

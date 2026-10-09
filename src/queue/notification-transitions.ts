@@ -89,14 +89,17 @@ export class NotificationTransitions {
   }
 
   /**
-   * T4 (transient) or T6 (permanent). Fenced by the attempt number: a worker
+   * T4 RETRYING, T5 DEAD or T6 FAILED. Fenced by the attempt number: a worker
    * that lost its lease must not mark a failure over the new holder's send.
    */
   async markFailed(
     manager: EntityManager,
     id: number,
     attemptNo: number,
-    to: NotificationStatus.Retrying | NotificationStatus.Failed,
+    to:
+      | NotificationStatus.Retrying
+      | NotificationStatus.Dead
+      | NotificationStatus.Failed,
     errorCode: string,
   ): Promise<boolean> {
     const result = await manager.update(

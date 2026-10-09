@@ -266,21 +266,67 @@ describe('Send workers (e2e)', () => {
   });
 
   describe('failure', () => {
-    it('moves a transient error to RETRYING and fails the job', async () => {
+    it('moves a transient failure with attempts left to RETRYING', async () => {
+      const id = await insertNotification();
       fake.script({ kind: 'transient', code: 'THROTTLED' });
-      const id = await accept();
 
-      const row = await settled(id, NotificationStatus.Retrying);
+      await expect(
+        app.get(SendProcessor).process(jobFor(id, { attempts: 5 })),
+      ).rejects.toMatchObject({ code: 'THROTTLED' });
+
+      const row = await notification(id);
+      expect(row.status).toBe(NotificationStatus.Retrying);
       expect(row.lastErrorCode).toBe('THROTTLED');
       expect(row.leaseUntil).toBeNull();
-      expect(await attempts(id)).toEqual([
-        expect.objectContaining({
-          attemptNo: 1,
-          outcome: 'TRANSIENT_ERROR',
-          errorCode: 'THROTTLED',
-        }),
+    });
+
+    it('scenario 3: succeeds after three 5xx with four attempts recorded', async () => {
+      fake.script(
+        { kind: 'transient', code: 'PROVIDER_5XX' },
+        { kind: 'transient', code: 'PROVIDER_5XX' },
+        { kind: 'transient', code: 'PROVIDER_5XX' },
+      );
+      const id = await accept();
+
+      const row = await settled(id, NotificationStatus.Sent);
+      expect(row.attemptCount).toBe(4);
+      expect(row.lastErrorCode).toBeNull();
+      expect(
+        (await attempts(id)).map((a) => [a.attemptNo, a.outcome, a.errorCode]),
+      ).toEqual([
+        [1, 'TRANSIENT_ERROR', 'PROVIDER_5XX'],
+        [2, 'TRANSIENT_ERROR', 'PROVIDER_5XX'],
+        [3, 'TRANSIENT_ERROR', 'PROVIDER_5XX'],
+        [4, 'SUCCESS', null],
       ]);
+      expect(fake.sent).toHaveLength(1);
+      expect(await finishedState(jobIdFor(id))).toBe('completed');
+    });
+
+    it('scenario 5: goes DEAD and into the DLQ after the last attempt', async () => {
+      fake.script(
+        ...Array.from({ length: 5 }, () => ({
+          kind: 'transient' as const,
+          code: 'PROVIDER_5XX',
+        })),
+      );
+      const id = await accept();
+
+      const row = await settled(id, NotificationStatus.Dead);
+      expect(row.attemptCount).toBe(5);
+      expect(row.lastErrorCode).toBe('PROVIDER_5XX');
+      expect(await attempts(id)).toHaveLength(5);
+      expect(fake.sent).toHaveLength(0);
       expect(await finishedState(jobIdFor(id))).toBe('failed');
+
+      const dead = await waitFor(() =>
+        getQueue(app, QueueNames.Dlq).getJob(jobIdFor(id)),
+      );
+      expect(dead.data).toEqual({
+        notificationId: id,
+        sourceQueue: 'email-transactional',
+        errorCode: 'PROVIDER_5XX',
+      });
     });
 
     it('moves a permanent error to FAILED without retrying', async () => {
@@ -301,6 +347,14 @@ describe('Send workers (e2e)', () => {
   });
 });
 
-function jobFor(notificationId: number): Job<SendJobData> {
-  return { data: { notificationId } } as Job<SendJobData>;
+function jobFor(
+  notificationId: number,
+  opts: { attempts?: number } = {},
+): Job<SendJobData> {
+  return {
+    data: { notificationId },
+    opts,
+    attemptsMade: 0,
+    queueName: QueueNames.EmailTransactional,
+  } as unknown as Job<SendJobData>;
 }

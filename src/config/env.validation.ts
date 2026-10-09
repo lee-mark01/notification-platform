@@ -145,6 +145,18 @@ export class EnvironmentVariables {
   @IsString()
   CORS_ORIGINS: string = '';
 
+  // Attempts per send job, including the first. Transient failures retry
+  // with an exponential backoff from RETRY_BASE_DELAY_MS (1x, 2x, 4x, ...)
+  // with jitter; after the last attempt the notification is DEAD.
+  @IsInt()
+  @Min(1)
+  @Max(20)
+  SEND_MAX_ATTEMPTS: number = 5;
+
+  @IsInt()
+  @Min(0)
+  RETRY_BASE_DELAY_MS: number = 2_000;
+
   // Fixed delay per fake send, for load tests (D10).
   @IsInt()
   @Min(0)

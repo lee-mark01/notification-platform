@@ -96,7 +96,9 @@ stateDiagram-v2
 
 ### 재시도와 DLQ (T4, T5)
 
-- BullMQ job 옵션 `attempts`(예: 5)와 커스텀 백오프(지수 + jitter)를 쓴다.
+- BullMQ job 옵션 `attempts`(기본 5, `SEND_MAX_ATTEMPTS`)와 BullMQ 내장 지수 백오프(`exponential`, 기본 2초 × 2^(n-1), `jitter: 0.5`)를 쓴다. 지연을 직접 계산하지 않고 내장 옵션을 쓴 이유: 지수 + jitter가 이미 지원되고, 직접 구현할수록 테스트할 것만 늘어난다.
+- 무엇을 할지는 `src/queue/failure-policy.ts`의 순수 함수가 정한다: 영구 → FAILED, 일시 + 시도 남음 → RETRYING, 일시 + 마지막 시도 → DEAD.
+- Provider 호출이 성공한 뒤 결과 기록(T3)이 실패하면 Provider 실패로 기록하지 않는다. job은 그 오류로 실패하고, 재시도는 lease 만료 뒤 재점유로 이어진다(이 경우 중복 발송 가능 — at-least-once).
 - 일시 오류이고 남은 시도가 있으면 T4 후 오류를 던져 BullMQ가 재시도하게 한다.
 - 마지막 시도에서도 일시 오류면 T5 후 DLQ 큐(`notification-dlq`)에 알림 id를 넣는다.
 - 영구 오류는 T6 후 `UnrecoverableError`를 던져 BullMQ가 재시도하지 않게 한다.

@@ -57,5 +57,8 @@ export default async function globalSetup(): Promise<void> {
     EMAIL_PROVIDER: 'fake',
     PUSH_PROVIDER: 'fake',
     FAKE_PROVIDER_LATENCY_MS: '0',
+    // Short backoff so retry scenarios finish in milliseconds.
+    SEND_MAX_ATTEMPTS: '5',
+    RETRY_BASE_DELAY_MS: '10',
   });
 }
