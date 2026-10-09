@@ -4,6 +4,7 @@ import { DispatchModule } from '../dispatch/dispatch.module';
 import { Notification } from '../notifications/notification.entity';
 import { NotificationTransitions } from '../queue/notification-transitions';
 import { QueueModule } from '../queue/queue.module';
+import { Template } from '../templates/template.entity';
 import { AdminKeyGuard } from './admin-key.guard';
 import { DlqController } from './dlq/dlq.controller';
 import { DlqService } from './dlq/dlq.service';
@@ -14,7 +15,7 @@ import { StatsSummaryController, StatsSummaryService } from './stats/summary';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Notification]),
+    TypeOrmModule.forFeature([Notification, Template]),
     QueueModule,
     DispatchModule,
   ],
