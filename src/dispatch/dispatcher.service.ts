@@ -91,13 +91,16 @@ export class Dispatcher implements OnModuleInit, OnApplicationBootstrap {
   }
 
   /** Returns true if the job was added; false leaves it for the sweeper. */
-  async dispatch(notification: DispatchTarget): Promise<boolean> {
+  async dispatch(
+    notification: DispatchTarget,
+    correlationId?: string,
+  ): Promise<boolean> {
     const queue = this.queueOf(notification);
     try {
       await withTimeout(
         queue.add(
           SEND_JOB,
-          { notificationId: notification.id },
+          { notificationId: notification.id, correlationId },
           { jobId: jobIdFor(notification.id) },
         ),
         DISPATCH_TIMEOUT_MS,
@@ -121,7 +124,10 @@ export class Dispatcher implements OnModuleInit, OnApplicationBootstrap {
    * rest stay PENDING for the sweeper. A job id that already exists is left as
    * it is, so calling this again for the same notifications is safe.
    */
-  async dispatchMany(targets: DispatchTarget[]): Promise<boolean> {
+  async dispatchMany(
+    targets: DispatchTarget[],
+    correlationId?: string,
+  ): Promise<boolean> {
     if (targets.length === 0) return true;
     const byQueue = new Map<SendQueueName, DispatchTarget[]>();
     for (const target of targets) {
@@ -134,7 +140,7 @@ export class Dispatcher implements OnModuleInit, OnApplicationBootstrap {
           this.queues[name].addBulk(
             group.map((t) => ({
               name: SEND_JOB,
-              data: { notificationId: t.id },
+              data: { notificationId: t.id, correlationId },
               opts: { jobId: jobIdFor(t.id) },
             })),
           ),

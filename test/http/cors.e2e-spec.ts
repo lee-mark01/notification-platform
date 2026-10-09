@@ -31,7 +31,7 @@ describe('CORS (e2e)', () => {
       expect(res.headers['access-control-allow-origin']).toBe(DEMO);
     });
 
-    it('exposes ETag and Location to browser scripts', async () => {
+    it('exposes ETag, Location and X-Request-Id to browser scripts', async () => {
       const res = await request(app.getHttpServer())
         .get('/health/live')
         .set('Origin', DEMO)
@@ -39,7 +39,7 @@ describe('CORS (e2e)', () => {
 
       expect(res.headers['access-control-allow-origin']).toBe(DEMO);
       expect(res.headers['access-control-expose-headers']).toBe(
-        'ETag,Location',
+        'ETag,Location,X-Request-Id',
       );
     });
 

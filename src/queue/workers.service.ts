@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Worker } from 'bullmq';
+import { PinoLogger } from 'nestjs-pino';
 import type { EnvironmentVariables } from '../config/env.validation';
 import {
   QueueNames,
@@ -52,6 +53,7 @@ export class WorkersService
   constructor(
     private readonly config: ConfigService<EnvironmentVariables, true>,
     private readonly processor: SendProcessor,
+    private readonly pino: PinoLogger,
   ) {}
 
   onApplicationBootstrap(): void {
@@ -72,7 +74,17 @@ export class WorkersService
     for (const [name, concurrency] of Object.entries(CONCURRENCY)) {
       const worker = new Worker<SendJobData>(
         name,
-        (job, token) => this.processor.process(job, token),
+        // Every log made while processing carries the job's ids, including
+        // the correlation id of the request that accepted it.
+        (job, token) =>
+          this.pino.runInContext(() => this.processor.process(job, token), {
+            bindings: {
+              queue: name,
+              jobId: job.id,
+              notificationId: job.data.notificationId,
+              correlationId: job.data.correlationId,
+            },
+          }),
         {
           connection,
           concurrency,
