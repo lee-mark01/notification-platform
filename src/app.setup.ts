@@ -2,6 +2,7 @@ import { ConfigService } from '@nestjs/config';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { Logger } from 'nestjs-pino';
+import { mountBullBoard } from './admin/queues/bull-board';
 import { ProblemDetailsFilter } from './common/problem/problem-details.filter';
 import {
   FieldErrorDto,
@@ -40,6 +41,8 @@ export function configureApp(app: NestExpressApplication): void {
       exposedHeaders: ['ETag', 'Location', 'X-Request-Id'],
     });
   }
+
+  mountBullBoard(app);
 
   if (config.get('SWAGGER_ENABLED', { infer: true })) {
     setupSwagger(app);

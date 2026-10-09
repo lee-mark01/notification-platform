@@ -14,22 +14,36 @@ export const ADMIN_KEY_HEADER = 'x-admin-key';
 const digest = (value: string) => createHash('sha256').update(value).digest();
 
 /**
- * Protects operator APIs with one shared key. Both sides are hashed first so
- * timingSafeEqual compares equal-length buffers, and the comparison time does
- * not reveal how many leading characters matched.
+ * A constant-time check against the admin key, for places outside Nest's
+ * guards (the Bull Board mount). Both sides are hashed first so
+ * timingSafeEqual compares equal-length buffers.
+ */
+export function adminKeyMatcher(
+  key: string,
+): (given: string | undefined) => boolean {
+  const expected = digest(key);
+  return (given) =>
+    given !== undefined && timingSafeEqual(digest(given), expected);
+}
+
+/**
+ * Protects operator APIs with one shared key. The comparison time does not
+ * reveal how many leading characters matched.
  */
 @Injectable()
 export class AdminKeyGuard implements CanActivate {
-  private readonly expected: Buffer;
+  private readonly matches: (given: string | undefined) => boolean;
 
   constructor(config: ConfigService<EnvironmentVariables, true>) {
-    this.expected = digest(config.get('ADMIN_API_KEY', { infer: true }));
+    this.matches = adminKeyMatcher(
+      config.get('ADMIN_API_KEY', { infer: true }),
+    );
   }
 
   canActivate(context: ExecutionContext): boolean {
     const http = context.switchToHttp();
     const given = http.getRequest<Request>().header(ADMIN_KEY_HEADER);
-    if (given && timingSafeEqual(digest(given), this.expected)) return true;
+    if (this.matches(given)) return true;
 
     http
       .getResponse<Response>()
