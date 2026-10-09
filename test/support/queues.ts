@@ -9,12 +9,19 @@ export function getQueue(app: INestApplication, name: QueueName): Queue {
 }
 
 // Notification ids restart after resetDatabase(), so jobs left by an earlier
-// test would collide with new job ids.
+// test would collide with new job ids. drain + clean rather than obliterate:
+// obliterate pauses the queue and deletes its metadata, which can race the
+// live workers of suites that run them. Every test waits for its own jobs to
+// finish, so nothing is active here.
 export async function resetQueues(app: INestApplication): Promise<void> {
   await Promise.all(
-    Object.values(QueueNames).map((name) =>
-      getQueue(app, name).obliterate({ force: true }),
-    ),
+    Object.values(QueueNames).map(async (name) => {
+      const queue = getQueue(app, name);
+      await queue.drain(true);
+      for (const type of ['completed', 'failed', 'wait', 'paused'] as const) {
+        await queue.clean(0, 0, type);
+      }
+    }),
   );
 }
 

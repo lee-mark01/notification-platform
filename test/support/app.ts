@@ -16,6 +16,12 @@ export interface TestAppOptions extends Pick<
    * changed, because ConfigModule reads process.env once per module load.
    */
   env?: Record<string, string>;
+  /** Providers replaced by a factory, e.g. a provider adapter over a fake. */
+  overrides?: {
+    provide: unknown;
+    factory: (...args: never[]) => unknown;
+    inject?: unknown[];
+  }[];
 }
 
 // Builds the real AppModule with the same global wiring as main.ts.
@@ -32,6 +38,12 @@ export async function createTestApp(
     builder = builder
       .overrideProvider(ConfigService)
       .useValue(new ConfigService(config));
+  }
+
+  for (const { provide, factory, inject } of options.overrides ?? []) {
+    builder = builder
+      .overrideProvider(provide)
+      .useFactory({ factory, inject: inject as never[] });
   }
 
   const moduleRef = await builder.compile();
