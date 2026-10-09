@@ -237,6 +237,7 @@ Location: /notifications/1024
 | `POST /admin/suppressions`               | 관리자 등록 `{ email, note }` → 201                                                                                            | Phase 6                  |
 | `DELETE /admin/suppressions/{email}`     | 해제 (`released_at` 기록) → 204                                                                                                | Phase 6                  |
 | `GET /admin/stats/summary`               | `from`, `to`, `groupBy=channel,category` → 상태별 건수, 성공률, 읽음률                                                         | Phase 6                  |
+| `GET /admin/stats/read-rates`            | `from`, `to`(기본 최근 7일, 최대 92일) → 템플릿·채널별 발송 수, 읽음 수, 읽음률. 이메일은 Open 이벤트 기준이라 근사치          | 구현됨                   |
 | `GET /admin/dlq`                         | DEAD 알림 목록 (커서, 오래된 순)                                                                                               | 구현됨                   |
 | `POST /admin/dlq/redrive`                | `{ "notificationIds": [..] }`(1~100개) → 각 알림 T8(DEAD → QUEUED) 후 재등록. 응답 `{ "redriven": n, "skipped": [..] }`        | 구현됨                   |
 | `GET /admin/queues/metrics`              | 큐별 waiting·active·delayed·failed, DLQ 건수                                                                                   | Phase 7                  |
