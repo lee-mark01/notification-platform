@@ -14,6 +14,8 @@ import {
   ProviderError,
 } from '../providers/notification-provider';
 import { ProviderRegistry } from '../providers/provider-registry';
+import { SuppressionReason } from '../suppressions/suppression.entity';
+import { SuppressionsService } from '../suppressions/suppressions.service';
 import { TemplateChannel } from '../templates/template.entity';
 import {
   type ClassifiedFailure,
@@ -22,6 +24,7 @@ import {
   FailureAction,
 } from './failure-policy';
 import { NotificationTransitions } from './notification-transitions';
+import { SendPolicy } from './send-policy';
 import {
   DLQ_JOB,
   type DlqJobData,
@@ -60,6 +63,8 @@ export class SendProcessor {
     private readonly transitions: NotificationTransitions,
     private readonly providers: ProviderRegistry,
     @InjectQueue(QueueNames.Dlq) private readonly dlq: Queue<DlqJobData>,
+    private readonly policy: SendPolicy,
+    private readonly suppressions: SuppressionsService,
   ) {}
 
   async process(job: Job<SendJobData>): Promise<void> {
@@ -78,6 +83,13 @@ export class SendProcessor {
     }
 
     const notification = await this.notifications.findOneByOrFail({ id });
+    const blocked = await this.policy.blockReason(notification);
+    if (blocked) {
+      // No provider call and no delivery_attempt row: nothing was tried.
+      await this.transitions.markSuppressed(id, attemptNo, blocked);
+      this.logger.log(`Notification ${id} suppressed: ${blocked}`);
+      return;
+    }
     const provider = this.providers.forChannel(notification.channel);
     const startedAt = new Date();
     const attempt = (outcome: AttemptOutcome, failure?: ClassifiedFailure) => ({
@@ -95,13 +107,18 @@ export class SendProcessor {
     try {
       ({ providerMessageId } = await provider.send(toMessage(notification)));
     } catch (error) {
-      await this.recordFailure(job, id, attemptNo, classifyError(error), (f) =>
-        attempt(
-          f.transient
-            ? AttemptOutcome.TransientError
-            : AttemptOutcome.PermanentError,
-          f,
-        ),
+      await this.recordFailure(
+        job,
+        notification,
+        attemptNo,
+        classifyError(error),
+        (f) =>
+          attempt(
+            f.transient
+              ? AttemptOutcome.TransientError
+              : AttemptOutcome.PermanentError,
+            f,
+          ),
       );
       return;
     }
@@ -117,11 +134,12 @@ export class SendProcessor {
   /** Records the failed attempt and its transition, then fails the job. */
   private async recordFailure(
     job: Job<SendJobData>,
-    id: number,
+    notification: Notification,
     attemptNo: number,
     failure: ClassifiedFailure,
     row: (failure: ClassifiedFailure) => Partial<DeliveryAttempt>,
   ): Promise<never> {
+    const id = notification.id;
     const action = decideFailure(
       failure,
       job.attemptsMade ?? 0,
@@ -144,6 +162,21 @@ export class SendProcessor {
       await manager.insert(DeliveryAttempt, row(failure));
       return changed;
     });
+
+    // Scenario 4: an address the provider rejected outright is suppressed so
+    // later notifications to it stop before reaching the provider.
+    if (
+      moved &&
+      failure.invalidRecipient &&
+      notification.channel === TemplateChannel.Email &&
+      notification.recipientEmail !== null
+    ) {
+      await this.suppressions.suppress(
+        notification.recipientEmail,
+        SuppressionReason.InvalidAddress,
+        `notification:${id}`,
+      );
+    }
 
     if (action === FailureAction.Retry) {
       throw new ProviderError(failure.code, true, failure.message);

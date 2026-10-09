@@ -94,7 +94,7 @@ describe('DLQ admin API (e2e)', () => {
         templateId: template.id,
         templateVersion: 1,
         channel: TemplateChannel.Email,
-        category: NotificationCategory.Marketing,
+        category: NotificationCategory.Transactional,
         status: NotificationStatus.Dead,
         recipientEmail: 'someone@example.com',
         variables: {},

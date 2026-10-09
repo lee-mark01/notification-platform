@@ -13,7 +13,7 @@ import {
 export type FakeOutcome =
   | { kind: 'success' }
   | { kind: 'transient'; code: string }
-  | { kind: 'permanent'; code: string };
+  | { kind: 'permanent'; code: string; invalidRecipient?: boolean };
 
 /**
  * Stands in for SES and FCM (D7). Tests script the next outcomes, a latency,
@@ -51,6 +51,7 @@ export class FakeProvider implements NotificationProvider {
         outcome.code,
         outcome.kind === 'transient',
         `fake ${outcome.kind} error`,
+        outcome.kind === 'permanent' && outcome.invalidRecipient === true,
       );
     }
     this.sent.push(message);

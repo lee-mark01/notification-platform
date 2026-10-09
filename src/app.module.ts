@@ -6,6 +6,7 @@ import { buildDataSourceOptions } from './database/database.options';
 import { AdminModule } from './admin/admin.module';
 import { DevicesModule } from './devices/devices.module';
 import { HealthModule } from './health/health.module';
+import { MeModule } from './me/me.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { WorkerModule } from './queue/worker.module';
 import { RedisModule } from './redis/redis.module';
@@ -37,6 +38,7 @@ import { TemplatesModule } from './templates/templates.module';
     TemplatesModule,
     NotificationsModule,
     DevicesModule,
+    MeModule,
     AdminModule,
     SweeperModule,
     WorkerModule,

@@ -9,6 +9,7 @@ describe('classifyError', () => {
       code: 'MessageRejected',
       transient: false,
       message: 'rejected',
+      invalidRecipient: false,
     });
   });
 
@@ -17,6 +18,7 @@ describe('classifyError', () => {
       code: 'UNCLASSIFIED',
       transient: true,
       message: 'boom',
+      invalidRecipient: false,
     });
     expect(classifyError('text')).toMatchObject({ transient: true });
   });
