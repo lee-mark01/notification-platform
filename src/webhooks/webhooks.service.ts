@@ -7,6 +7,7 @@ import { isDuplicateEntryError } from '../common/database/mysql-errors';
 import { ProblemTypes } from '../common/problem/problem-types';
 import { ProblemException } from '../common/problem/problem.exception';
 import type { EnvironmentVariables } from '../config/env.validation';
+import { SesEventProcessor } from './ses-event.processor';
 import { SnsHttp } from './sns-http';
 import {
   isSnsUrl,
@@ -36,6 +37,7 @@ export class WebhooksService {
     private readonly http: SnsHttp,
     @InjectRepository(WebhookEvent)
     private readonly events: Repository<WebhookEvent>,
+    private readonly processor: SesEventProcessor,
   ) {}
 
   async receive(body: unknown): Promise<{
@@ -128,6 +130,9 @@ export class WebhooksService {
       if (isDuplicateEntryError(error)) return { outcome: 'duplicate' };
       throw error;
     }
+    // Applied right away; if the notification is not known yet the event
+    // stays unprocessed and the sweeper retries it.
+    await this.processor.receive(event);
     return { outcome: 'stored', event };
   }
 }
