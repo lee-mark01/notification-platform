@@ -73,6 +73,17 @@ describe('renderTemplate', () => {
     });
   });
 
+  // Compiled sources are cached; an edited template must not reuse them.
+  it('renders the new source after a template is edited', () => {
+    const before = renderTemplate(email, { name: 'A', code: '1' });
+    const edited = renderTemplate(
+      { ...email, subject: 'Hello {{name}}' },
+      { name: 'A', code: '1' },
+    );
+    expect(before).toMatchObject({ subject: 'Welcome A' });
+    expect(edited).toMatchObject({ subject: 'Hello A' });
+  });
+
   it('reports every missing required variable', () => {
     expect(() => renderTemplate(email, { name: 'Lee' })).toThrow(
       new MissingVariablesError(['code']),
