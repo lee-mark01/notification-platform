@@ -1,0 +1,92 @@
+# Isolated stack for the chaos scripts: its own MySQL, Redis and volumes,
+# and the API on port 13000, so it never touches the development stack.
+# The values below are throwaway test settings, not secrets.
+name: np-chaos
+
+x-app-env: &app-env
+  NODE_ENV: production
+  PORT: 3000
+  DB_HOST: mysql
+  DB_PORT: 3306
+  DB_DATABASE: chaos
+  DB_USERNAME: chaos
+  DB_PASSWORD: chaos-password
+  REDIS_HOST: redis
+  REDIS_PORT: 6379
+  JWT_SECRET: chaos-jwt-secret-not-used-anywhere-else
+  ADMIN_API_KEY: chaos-admin-key-not-used-anywhere-else
+  EMAIL_PROVIDER: fake
+  PUSH_PROVIDER: fake
+  # Short timings so a run takes minutes, not hours.
+  RETRY_BASE_DELAY_MS: 1000
+  SWEEP_INTERVAL_MS: 5000
+  SWEEP_PENDING_AFTER_MS: 5000
+  SWEEP_STUCK_AFTER_MS: 120000
+
+services:
+  mysql:
+    image: mysql:8.4
+    environment:
+      MYSQL_ROOT_PASSWORD: chaos-root
+      MYSQL_DATABASE: chaos
+      MYSQL_USER: chaos
+      MYSQL_PASSWORD: chaos-password
+      TZ: UTC
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_0900_ai_ci
+    healthcheck:
+      test: ['CMD-SHELL', 'mysqladmin ping -h 127.0.0.1 -uroot -pchaos-root --silent']
+      interval: 3s
+      timeout: 3s
+      retries: 30
+
+  redis:
+    image: redis:7.4-alpine
+    command: [redis-server, --maxmemory-policy, noeviction, --appendonly, 'yes']
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 3s
+      timeout: 3s
+      retries: 30
+
+  migrate:
+    build: ..
+    image: np-chaos-app
+    environment: *app-env
+    command: [node, node_modules/typeorm/cli.js, migration:run, -d, dist/database/data-source.js]
+    restart: 'no'
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  # Accepts requests only; sending happens in the worker service.
+  api:
+    image: np-chaos-app
+    pull_policy: never
+    environment:
+      <<: *app-env
+      WORKERS_ENABLED: 'false'
+    ports:
+      - '13000:3000'
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+
+  # The process the scripts kill. A slow fake provider keeps jobs in flight.
+  worker:
+    image: np-chaos-app
+    pull_policy: never
+    environment:
+      <<: *app-env
+      WORKERS_ENABLED: 'true'
+      FAKE_PROVIDER_LATENCY_MS: 2000
+    # SIGTERM first; a long grace period so a clean shutdown can finish.
+    stop_grace_period: 30s
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
