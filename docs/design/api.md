@@ -235,19 +235,19 @@ Location: /notifications/1024
 
 ## 관리자 API
 
-| 메서드·경로                              | 용도                                                                                                                           | 구현    |
-| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | ------- |
-| `POST/GET/PATCH/DELETE /admin/templates` | 템플릿 CRUD (ETag·If-Match)                                                                                                    | 구현됨  |
-| `POST /admin/templates/{id}/preview`     | `{ variables }` → 접수와 같은 규칙으로 렌더링한 결과(채널별 필드). 누락 변수·긴 제목은 422 `template-unusable`                 | 구현됨  |
-| `GET /admin/notifications`               | 발송 이력 검색: `from`, `to`, `channel`, `category`, `status`, `clientId`, `userId`, `email`, `templateKey`, `limit`, `cursor` | Phase 6 |
-| `GET /admin/suppressions`                | 수신거부 목록 (`email`, `reason`, `active` 필터)                                                                               | Phase 6 |
-| `POST /admin/suppressions`               | 관리자 등록 `{ email, note }` → 201                                                                                            | Phase 6 |
-| `DELETE /admin/suppressions/{email}`     | 해제 (`released_at` 기록) → 204                                                                                                | Phase 6 |
-| `GET /admin/stats/summary`               | `from`, `to`, `groupBy=channel,category` → 상태별 건수, 성공률, 읽음률                                                         | Phase 6 |
-| `GET /admin/stats/read-rates`            | `from`, `to`(기본 최근 7일, 최대 92일) → 템플릿·채널별 발송 수, 읽음 수, 읽음률. 이메일은 Open 이벤트 기준이라 근사치          | 구현됨  |
-| `GET /admin/dlq`                         | DEAD 알림 목록 (커서, 오래된 순)                                                                                               | 구현됨  |
-| `POST /admin/dlq/redrive`                | `{ "notificationIds": [..] }`(1~100개) → 각 알림 T8(DEAD → QUEUED) 후 재등록. 응답 `{ "redriven": n, "skipped": [..] }`        | 구현됨  |
-| `GET /admin/queues/metrics`              | 큐별 waiting·active·delayed·failed, DLQ 건수                                                                                   | Phase 7 |
+| 메서드·경로                              | 용도                                                                                                                                                                                                         | 구현    |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------- |
+| `POST/GET/PATCH/DELETE /admin/templates` | 템플릿 CRUD (ETag·If-Match)                                                                                                                                                                                  | 구현됨  |
+| `POST /admin/templates/{id}/preview`     | `{ variables }` → 접수와 같은 규칙으로 렌더링한 결과(채널별 필드). 누락 변수·긴 제목은 422 `template-unusable`                                                                                               | 구현됨  |
+| `GET /admin/notifications`               | 발송 이력 검색: `from`·`to`(기본 최근 7일, 최대 92일), `channel`, `category`, `status`(쉼표로 여러 개), `clientId`, `userId`, `email`(정확히 일치), `templateKey`, `limit`(1~100, 기본 50), `cursor`. 최신순 | 구현됨  |
+| `GET /admin/suppressions`                | 수신거부 목록 (`email`, `reason`, `active` 필터)                                                                                                                                                             | Phase 6 |
+| `POST /admin/suppressions`               | 관리자 등록 `{ email, note }` → 201                                                                                                                                                                          | Phase 6 |
+| `DELETE /admin/suppressions/{email}`     | 해제 (`released_at` 기록) → 204                                                                                                                                                                              | Phase 6 |
+| `GET /admin/stats/summary`               | `from`, `to`, `groupBy=channel,category` → 상태별 건수, 성공률, 읽음률                                                                                                                                       | Phase 6 |
+| `GET /admin/stats/read-rates`            | `from`, `to`(기본 최근 7일, 최대 92일) → 템플릿·채널별 발송 수, 읽음 수, 읽음률. 이메일은 Open 이벤트 기준이라 근사치                                                                                        | 구현됨  |
+| `GET /admin/dlq`                         | DEAD 알림 목록 (커서, 오래된 순)                                                                                                                                                                             | 구현됨  |
+| `POST /admin/dlq/redrive`                | `{ "notificationIds": [..] }`(1~100개) → 각 알림 T8(DEAD → QUEUED) 후 재등록. 응답 `{ "redriven": n, "skipped": [..] }`                                                                                      | 구현됨  |
+| `GET /admin/queues/metrics`              | 큐별 waiting·active·delayed·failed, DLQ 건수                                                                                                                                                                 | Phase 7 |
 
 - 목록은 모두 커서 페이지네이션(`{ items, nextCursor }`).
 - redrive는 이미 DEAD가 아닌 알림을 건너뛰고(`skipped`), 같은 요청을 반복해도 안전하다.
