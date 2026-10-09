@@ -1,0 +1,13 @@
+# Layered over chaos/compose.yml (its own MySQL, Redis and API on 13000):
+# a fast fake provider and a send rate that, not the provider, is the
+# bottleneck, so the two routings differ only in queue order.
+services:
+  api:
+    environment:
+      QUEUE_ROUTING: ${QUEUE_ROUTING:-split}
+      EMAIL_RATE_PER_SEC: ${EMAIL_RATE_PER_SEC:-100}
+  worker:
+    environment:
+      QUEUE_ROUTING: ${QUEUE_ROUTING:-split}
+      EMAIL_RATE_PER_SEC: ${EMAIL_RATE_PER_SEC:-100}
+      FAKE_PROVIDER_LATENCY_MS: 50
