@@ -1,6 +1,7 @@
+import { InjectQueue } from '@nestjs/bullmq';
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
-import { type Job, UnrecoverableError } from 'bullmq';
+import { type Job, type Queue, UnrecoverableError } from 'bullmq';
 import { DataSource, Repository } from 'typeorm';
 import { DeliveryAttempt } from '../notifications/delivery-attempt.entity';
 import { Notification } from '../notifications/notification.entity';
@@ -14,8 +15,20 @@ import {
 } from '../providers/notification-provider';
 import { ProviderRegistry } from '../providers/provider-registry';
 import { TemplateChannel } from '../templates/template.entity';
+import {
+  type ClassifiedFailure,
+  classifyError,
+  decideFailure,
+  FailureAction,
+} from './failure-policy';
 import { NotificationTransitions } from './notification-transitions';
-import type { SendJobData } from './queue.constants';
+import {
+  DLQ_JOB,
+  type DlqJobData,
+  jobIdFor,
+  QueueNames,
+  type SendJobData,
+} from './queue.constants';
 
 const MAX_ERROR_MESSAGE = 500;
 
@@ -30,9 +43,11 @@ export class LeaseHeldError extends Error {
  * Handles one send job: claim, call the provider outside any transaction,
  * then record the outcome and one delivery_attempt row together.
  *
- * Retries, backoff, the DLQ and the suppression check come in Phase 3. Here a
- * transient error moves the notification to RETRYING and fails the job; a
- * permanent error moves it to FAILED and tells BullMQ not to retry.
+ * A failure is classified and decided by failure-policy.ts: transient with
+ * attempts left goes to RETRYING and BullMQ retries after an exponential
+ * backoff with jitter; transient on the last attempt goes to DEAD and the
+ * DLQ; permanent goes to FAILED. DEAD and FAILED throw UnrecoverableError so
+ * BullMQ stops retrying.
  */
 @Injectable()
 export class SendProcessor {
@@ -44,6 +59,7 @@ export class SendProcessor {
     private readonly notifications: Repository<Notification>,
     private readonly transitions: NotificationTransitions,
     private readonly providers: ProviderRegistry,
+    @InjectQueue(QueueNames.Dlq) private readonly dlq: Queue<DlqJobData>,
   ) {}
 
   async process(job: Job<SendJobData>): Promise<void> {
@@ -64,73 +80,100 @@ export class SendProcessor {
     const notification = await this.notifications.findOneByOrFail({ id });
     const provider = this.providers.forChannel(notification.channel);
     const startedAt = new Date();
+    const attempt = (outcome: AttemptOutcome, failure?: ClassifiedFailure) => ({
+      notificationId: id,
+      attemptNo,
+      provider: provider.name,
+      outcome,
+      errorCode: failure?.code ?? null,
+      errorMessage: failure?.message.slice(0, MAX_ERROR_MESSAGE) ?? null,
+      durationMs: Date.now() - startedAt.getTime(),
+      startedAt,
+    });
 
+    let providerMessageId: string;
     try {
-      const result = await provider.send(toMessage(notification));
-      await this.dataSource.transaction(async (manager) => {
-        await this.transitions.markSent(manager, id, result.providerMessageId);
-        await manager.insert(DeliveryAttempt, {
-          notificationId: id,
-          attemptNo,
-          provider: provider.name,
-          outcome: AttemptOutcome.Success,
-          errorCode: null,
-          errorMessage: null,
-          durationMs: Date.now() - startedAt.getTime(),
-          startedAt,
-        });
-      });
+      ({ providerMessageId } = await provider.send(toMessage(notification)));
     } catch (error) {
-      const failure = classify(error);
-      await this.dataSource.transaction(async (manager) => {
-        await this.transitions.markFailed(
-          manager,
-          id,
-          attemptNo,
-          failure.transient
-            ? NotificationStatus.Retrying
-            : NotificationStatus.Failed,
-          failure.code,
-        );
-        await manager.insert(DeliveryAttempt, {
-          notificationId: id,
-          attemptNo,
-          provider: provider.name,
-          outcome: failure.transient
+      await this.recordFailure(job, id, attemptNo, classifyError(error), (f) =>
+        attempt(
+          f.transient
             ? AttemptOutcome.TransientError
             : AttemptOutcome.PermanentError,
-          errorCode: failure.code,
-          errorMessage: failure.message.slice(0, MAX_ERROR_MESSAGE),
-          durationMs: Date.now() - startedAt.getTime(),
-          startedAt,
-        });
-      });
-      throw failure.transient
-        ? error
-        : new UnrecoverableError(`${failure.code}: ${failure.message}`);
+          f,
+        ),
+      );
+      return;
+    }
+
+    // Outside the try above: if recording fails after a successful send, the
+    // job fails with that error and is not mistaken for a provider failure.
+    await this.dataSource.transaction(async (manager) => {
+      await this.transitions.markSent(manager, id, providerMessageId);
+      await manager.insert(DeliveryAttempt, attempt(AttemptOutcome.Success));
+    });
+  }
+
+  /** Records the failed attempt and its transition, then fails the job. */
+  private async recordFailure(
+    job: Job<SendJobData>,
+    id: number,
+    attemptNo: number,
+    failure: ClassifiedFailure,
+    row: (failure: ClassifiedFailure) => Partial<DeliveryAttempt>,
+  ): Promise<never> {
+    const action = decideFailure(
+      failure,
+      job.attemptsMade ?? 0,
+      job.opts?.attempts ?? 1,
+    );
+    const to = {
+      [FailureAction.Retry]: NotificationStatus.Retrying,
+      [FailureAction.Dead]: NotificationStatus.Dead,
+      [FailureAction.Fail]: NotificationStatus.Failed,
+    } as const;
+
+    const moved = await this.dataSource.transaction(async (manager) => {
+      const changed = await this.transitions.markFailed(
+        manager,
+        id,
+        attemptNo,
+        to[action],
+        failure.code,
+      );
+      await manager.insert(DeliveryAttempt, row(failure));
+      return changed;
+    });
+
+    if (action === FailureAction.Retry) {
+      throw new ProviderError(failure.code, true, failure.message);
+    }
+    if (action === FailureAction.Dead && moved) {
+      await this.moveToDlq(job, id, failure.code);
+    }
+    throw new UnrecoverableError(`${failure.code}: ${failure.message}`);
+  }
+
+  // The DEAD status in MySQL is the record that counts; the DLQ job is for
+  // operators and dashboards. If adding it fails, redrive still finds the
+  // notification by its status.
+  private async moveToDlq(
+    job: Job<SendJobData>,
+    id: number,
+    errorCode: string,
+  ): Promise<void> {
+    try {
+      await this.dlq.add(
+        DLQ_JOB,
+        { notificationId: id, sourceQueue: job.queueName, errorCode },
+        { jobId: jobIdFor(id) },
+      );
+    } catch (error) {
+      this.logger.warn(
+        `Notification ${id} is DEAD but not in the DLQ: ${(error as Error).message}`,
+      );
     }
   }
-}
-
-// Anything that is not a classified ProviderError (a bug, a network error the
-// adapter did not catch) is treated as transient: retrying is the safer guess.
-function classify(error: unknown): {
-  code: string;
-  transient: boolean;
-  message: string;
-} {
-  if (error instanceof ProviderError) {
-    return {
-      code: error.code,
-      transient: error.transient,
-      message: error.message,
-    };
-  }
-  return {
-    code: 'UNCLASSIFIED',
-    transient: true,
-    message: error instanceof Error ? error.message : String(error),
-  };
 }
 
 function toMessage(n: Notification): OutboundMessage {

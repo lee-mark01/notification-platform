@@ -26,6 +26,16 @@ export interface SendJobData {
   notificationId: number;
 }
 
+export const DLQ_JOB = 'dead';
+
+// Kept for operators: where it came from and why it died. Nothing processes
+// the DLQ; redrive (#44) re-queues from the notification's DEAD status.
+export interface DlqJobData {
+  notificationId: number;
+  sourceQueue: string;
+  errorCode: string;
+}
+
 // BullMQ rejects integer-only custom ids, so the notification id is prefixed.
 // The same notification always maps to the same job id, which makes a second
 // add() a no-op while the first job is still kept in Redis.
