@@ -116,7 +116,8 @@ export class IdempotencyService {
     response: {
       status: number;
       body: Record<string, unknown>;
-      notificationId: number;
+      // Absent for a batch: the body carries the batch id.
+      notificationId?: number;
     },
   ): Promise<void> {
     const result = await manager.update(
@@ -129,7 +130,7 @@ export class IdempotencyService {
         responseBody: response.body as QueryDeepPartialEntity<
           Record<string, unknown>
         >,
-        notificationId: response.notificationId,
+        notificationId: response.notificationId ?? null,
       },
     );
     if (result.affected !== 1) throw this.lostOwnership();

@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { Queue } from 'bullmq';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { Notification } from '../notifications/notification.entity';
 import { NotificationStatus } from '../notifications/notification.enums';
 import {
@@ -22,6 +22,9 @@ import { queueFor } from './queue-routing';
 // add() normally takes about a millisecond. Before BullMQ has ever connected
 // it waits for Redis indefinitely, so the request must not wait with it.
 export const DISPATCH_TIMEOUT_MS = 1_000;
+
+// addBulk() of one chunk is a single round trip, but a larger one.
+export const BULK_DISPATCH_TIMEOUT_MS = 5_000;
 
 export type DispatchTarget = Pick<Notification, 'id' | 'channel' | 'category'>;
 
@@ -104,6 +107,48 @@ export class Dispatcher implements OnModuleInit, OnApplicationBootstrap {
     this.failing = false;
 
     await this.markQueued(notification.id);
+    return true;
+  }
+
+  /**
+   * dispatch() for many notifications: one addBulk() per queue and one UPDATE
+   * for all of them. Returns false if any add failed; the caller stops and the
+   * rest stay PENDING for the sweeper. A job id that already exists is left as
+   * it is, so calling this again for the same notifications is safe.
+   */
+  async dispatchMany(targets: DispatchTarget[]): Promise<boolean> {
+    if (targets.length === 0) return true;
+    const byQueue = new Map<SendQueueName, DispatchTarget[]>();
+    for (const target of targets) {
+      const name = queueFor(target.channel, target.category);
+      byQueue.set(name, [...(byQueue.get(name) ?? []), target]);
+    }
+    try {
+      for (const [name, group] of byQueue) {
+        await withTimeout(
+          this.queues[name].addBulk(
+            group.map((t) => ({
+              name: SEND_JOB,
+              data: { notificationId: t.id },
+              opts: { jobId: jobIdFor(t.id) },
+            })),
+          ),
+          BULK_DISPATCH_TIMEOUT_MS,
+        );
+      }
+    } catch (error) {
+      this.logger.warn(
+        `${targets.length} notifications left PENDING: ${(error as Error).message}`,
+      );
+      this.failing = true;
+      return false;
+    }
+    this.failing = false;
+
+    await this.notifications.update(
+      { id: In(targets.map((t) => t.id)), status: NotificationStatus.Pending },
+      { status: NotificationStatus.Queued, queuedAt: new Date() },
+    );
     return true;
   }
 
