@@ -80,7 +80,8 @@ SES와 FCM에는 멱등 키가 없어 exactly-once는 불가능합니다. 전달
 | [ERD](docs/design/erd.md)                 | 테이블·인덱스(각 인덱스가 어떤 조회를 위한 것인지), 대량 insert·통계·이력 보관에 대한 판단 |
 | [상태 머신](docs/design/state-machine.md) | 알림 상태와 조건부 UPDATE 전이, 멱등 키 처리, 장애 시나리오 13개 매핑, 반례 검토로 고친 것 |
 | [API 명세](docs/design/api.md)            | 인증, `Idempotency-Key` 규칙, 엔드포인트별 요청·응답·상태 코드·problem type                |
-| [ADR](docs/adr/README.md)                 | 큐 분리, 전달 보장과 멱등성, Outbox 대신 Sweeper, TypeORM                                  |
+| [ADR](docs/adr/README.md)                 | 큐 분리, 전달 보장과 멱등성, Outbox 대신 Sweeper, TypeORM, job 보존·발송 한도              |
+| [운영 가이드](docs/operations.md)         | DLQ 다시 보내기, 반송 급증, Redis 장애, Worker 증설·배포, 한 건 추적                       |
 
 ## 실행
 
