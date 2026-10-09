@@ -2,18 +2,73 @@
 
 [![CI](https://github.com/lee-mark01/notification-platform/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/lee-mark01/notification-platform/actions/workflows/ci.yml)
 
-이메일(AWS SES)과 푸시(FCM)를 하나의 인터페이스로 발송하는 알림 플랫폼입니다.
-재시도, Dead Letter Queue, 멱등성, 웹훅 기반 상태 추적을 갖추는 것을 목표로 합니다.
+이메일(AWS SES)과 웹 푸시(FCM)를 하나의 API로 보내는 알림 플랫폼입니다. 핵심은 **유실과 중복**입니다. 요청이 여러 번 와도 알림은 하나만 만들고, Redis나 Worker가 죽어도 접수한 알림을 잃지 않으며, 막을 수 없는 중복 발송 구간은 정의하고 측정합니다.
 
-> 개발 진행 중입니다. 기반(Phase 0), 설계(Phase 1), 실제 SES·FCM 발송까지의 정상 흐름(Phase 2)을 마쳤고, 지금은 재시도·DLQ·Sweeper 같은 실패 처리(Phase 3)를 만들고 있습니다.
+> 기반(Phase 0), 설계(Phase 1), 정상 흐름(Phase 2), 실패 처리(Phase 3)까지 구현했습니다. SES 반송·신고 웹훅, 알림함, 대량 발송, 관리 화면, 관측은 다음 단계입니다.
+
+## 한눈에 보기
+
+- **접수는 202로 바로, 발송은 큐 뒤에서**: `POST /notifications`가 알림을 DB에 커밋한 뒤 채널 × 유형별 BullMQ 큐 4개 중 하나에 넣고, Worker가 SES·FCM으로 보냅니다.
+- **요청 멱등성**: `Idempotency-Key`를 먼저 잡는 2단계 처리. 같은 키로 동시에 10건이 와도 알림은 1건이고, 잠금이 넘어간 경우는 펜싱 토큰으로 막습니다.
+- **발송 멱등성**: 모든 상태 전이는 조건부 UPDATE 한 문장입니다. Worker는 lease를 잡고 보내며, 같은 job이 두 번 실행돼도 한 번만 보냅니다.
+- **실패 처리**: 일시 오류는 지수 백오프 + jitter로 재시도, 다 쓰면 DEAD + DLQ, 운영자가 redrive. 영구 오류는 즉시 FAILED, 잘못된 주소는 수신거부에 등록합니다.
+- **유실 방지**: 큐 등록에 실패하면 알림은 PENDING으로 남고 Sweeper가 다시 넣습니다. Outbox 테이블 없이 알림 행의 상태가 그 역할을 합니다.
+- **정책**: 발송 직전에 수신거부 목록과 마케팅 동의를 확인합니다.
+
+```mermaid
+flowchart LR
+  client[내부 서비스] -- "POST /notifications<br/>Idempotency-Key" --> api[NestJS API]
+  api -- "① 커밋 (PENDING)" --> db[(MySQL)]
+  api -- "② 커밋 후 등록<br/>jobId = notification-id" --> q[["BullMQ 큐 4개<br/>email·push × transactional·marketing"]]
+  q --> worker[Worker]
+  worker -- "③ 조건부 점유 · lease<br/>④ 결과 + 시도 기록" --> db
+  worker -- "트랜잭션 밖 호출" --> ses[SES]
+  worker --> fcm[FCM]
+  worker -. "시도 소진" .-> dlq[[DLQ]]
+  sweeper[Sweeper] -. "job을 잃은 알림 재등록" .-> q
+  sweeper -.-> db
+```
+
+## 장애 시나리오
+
+설계 단계에서 장애 시나리오 13개를 정하고, 각각을 테스트나 장애 재현 스크립트로 확인합니다. 상태 전이와의 대응은 [상태 머신](docs/design/state-machine.md#장애-시나리오-매핑)에 있습니다.
+
+| #   | 시나리오                         | 결과                                                               | 확인                                                                               |
+| --- | -------------------------------- | ------------------------------------------------------------------ | ---------------------------------------------------------------------------------- |
+| 1   | 같은 Idempotency-Key로 동시 요청 | 동시 10건 → 알림 1건 (나머지는 409 또는 저장된 응답)               | E2E [`intake`](test/notifications/intake.e2e-spec.ts)                              |
+| 2   | DB 커밋 직후 Redis 다운          | Redis 정지 중 20건 접수 → 복구 후 20건 SENT, 유실 0                | [chaos](chaos/README.md) + E2E [`sweeper`](test/sweeper/sweeper.e2e-spec.ts)       |
+| 3   | Provider 5xx 3번                 | 백오프 후 SENT, 시도 기록 4행                                      | E2E [`worker`](test/queue/worker.e2e-spec.ts)                                      |
+| 4   | 잘못된 이메일 주소               | 재시도 없이 FAILED + 수신거부 등록                                 | E2E [`send-policy`](test/queue/send-policy.e2e-spec.ts)                            |
+| 5   | 최대 재시도 초과                 | DEAD + DLQ → redrive → SENT                                        | E2E [`worker`](test/queue/worker.e2e-spec.ts), [`dlq`](test/admin/dlq.e2e-spec.ts) |
+| 6   | 처리 중 Worker `kill -9`         | stall 감지 → lease 만료 후 재점유 → 전부 SENT, 중복 발송 측정(0건) | [chaos](chaos/README.md) + E2E [`worker`](test/queue/worker.e2e-spec.ts)           |
+| 7   | Worker 정상 종료(SIGTERM)        | 진행 중 job 완료 후 종료, 남은 SENDING 0, stall 0                  | [chaos](chaos/README.md) + E2E [`shutdown`](test/queue/shutdown.e2e-spec.ts)       |
+| 8   | 수신거부 사용자에게 발송         | SUPPRESSED, 시도 0회                                               | E2E [`send-policy`](test/queue/send-policy.e2e-spec.ts)                            |
+| 9   | 등록되지 않은 FCM 토큰           | 재시도 없이 토큰 비활성화                                          | E2E [`push-tokens`](test/queue/push-tokens.e2e-spec.ts)                            |
+| 10  | 같은 SNS 메시지 2번              | 예정 (Phase 4, 웹훅)                                               |                                                                                    |
+| 11  | 서명이 위조된 SNS 요청           | 예정 (Phase 4)                                                     |                                                                                    |
+| 12  | 같은 읽음 요청 반복              | 예정 (Phase 4, 알림함)                                             |                                                                                    |
+| 13  | 마케팅 대량 발송 중 인증 메일    | 예정 (Phase 5, 큐 분리 효과 측정)                                  |                                                                                    |
+
+SES와 FCM에는 멱등 키가 없어 exactly-once는 불가능합니다. 전달 보장은 at-least-once이고, 중복이 생기는 구간(발송 완료 직후 결과 기록 전에 Worker가 죽는 경우)을 [ADR-0002](docs/adr/0002-delivery-guarantee-and-idempotency.md)에 정의했습니다.
+
+## 핵심 결정
+
+| 결정                                              | 이유                                                                | 문서                                                            |
+| ------------------------------------------------- | ------------------------------------------------------------------- | --------------------------------------------------------------- |
+| 큐를 채널 × 유형 4개로 분리                       | 마케팅 대량 발송이 인증 메일의 처리 슬롯을 차지하지 않게            | [ADR-0001](docs/adr/0001-queue-routing.md)                      |
+| 멱등 키를 먼저 잡는 2단계 + 펜싱 토큰             | 동시 요청을 유니크 제약으로 거르고, 잠금이 넘어가도 완료는 소유자만 | [ADR-0002](docs/adr/0002-delivery-guarantee-and-idempotency.md) |
+| 상태 전이는 모두 조건부 UPDATE                    | "읽고 판단"하지 않고 DB가 원자적으로 판단                           | [상태 머신](docs/design/state-machine.md)                       |
+| Outbox 대신 커밋 후 등록 + Sweeper                | 알림 행의 PENDING이 곧 미발행 기록, 구성 요소를 늘리지 않음         | [ADR-0003](docs/adr/0003-sweeper-over-outbox.md)                |
+| 오류를 일시·영구로 나눠 재시도                    | 잘못된 주소는 재시도하지 않고, 계정 문제는 DLQ에서 되살릴 수 있게   | [상태 머신](docs/design/state-machine.md#재시도와-dlq-t4-t5)    |
+| 에러 응답은 RFC 9457, 수정 충돌은 ETag + If-Match | 표준을 따름                                                         | [API 명세](docs/design/api.md)                                  |
 
 ## 기술 스택
 
 - Node.js, TypeScript, NestJS
 - MySQL 8, TypeORM
 - BullMQ, Redis
-- AWS SES, SNS, Firebase Cloud Messaging
-- Jest, Testcontainers, k6
+- AWS SES v2, Firebase Cloud Messaging (SNS 웹훅은 Phase 4)
+- Jest, Testcontainers
 - Docker Compose, GitHub Actions
 
 ## 설계 문서
@@ -231,13 +286,7 @@ npm run migration:show
 
 ## 장애 재현 (chaos)
 
-프로세스와 인프라를 실제로 죽이는 시나리오는 별도 스택에서 스크립트로 재현합니다([chaos/README.md](chaos/README.md)).
-
-| 시나리오                     | 결과 (2026-10-09)                                                                         |
-| ---------------------------- | ----------------------------------------------------------------------------------------- |
-| 2. DB 커밋 직후 Redis 다운   | Redis 정지 중 20건 접수(전부 202, PENDING) → 복구 후 Sweeper가 재등록 → 20건 SENT, 유실 0 |
-| 6. 처리 중 Worker `kill -9`  | stall 8건 감지 → lease 만료 후 8건 재점유 → 20건 SENT, 중복 발송 0건(측정)                |
-| 7. Worker 정상 종료(SIGTERM) | 처리 중 10건을 마치고 3초 안에 종료, 남은 SENDING 0, stall 0                              |
+프로세스와 인프라를 실제로 죽이는 시나리오(2, 6, 7)는 전용 Docker 스택에서 스크립트로 재현합니다. 실행 방법과 측정 기록은 [chaos/README.md](chaos/README.md)에 있고, 결과는 위 [장애 시나리오](#장애-시나리오) 표에 반영했습니다.
 
 ## 테스트
 
