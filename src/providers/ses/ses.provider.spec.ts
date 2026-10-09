@@ -53,6 +53,20 @@ describe('classifySesError', () => {
     },
   );
 
+  it('flags a bad request about the address as an invalid recipient', () => {
+    const illegal = namedError('BadRequestException');
+    illegal.message = 'Illegal address';
+    const other = namedError('BadRequestException');
+    other.message = 'Missing required parameter';
+    const sandbox = namedError('MessageRejected');
+    sandbox.message = 'Email address is not verified.';
+
+    expect(classifySesError(illegal).invalidRecipient).toBe(true);
+    expect(classifySesError(other).invalidRecipient).toBe(false);
+    // A sandbox restriction on our account, not a bad address.
+    expect(classifySesError(sandbox).invalidRecipient).toBe(false);
+  });
+
   it('recognizes the SDK exception classes by name', () => {
     const rejected = new MessageRejected({
       message: 'Email address is not verified.',

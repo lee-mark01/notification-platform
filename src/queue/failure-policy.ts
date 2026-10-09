@@ -4,6 +4,7 @@ export interface ClassifiedFailure {
   code: string;
   transient: boolean;
   message: string;
+  invalidRecipient: boolean;
 }
 
 /**
@@ -18,12 +19,14 @@ export function classifyError(error: unknown): ClassifiedFailure {
       code: error.code,
       transient: error.transient,
       message: error.message,
+      invalidRecipient: error.invalidRecipient,
     };
   }
   return {
     code: 'UNCLASSIFIED',
     transient: true,
     message: error instanceof Error ? error.message : String(error),
+    invalidRecipient: false,
   };
 }
 

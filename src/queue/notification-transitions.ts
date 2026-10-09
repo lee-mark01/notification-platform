@@ -110,6 +110,23 @@ export class NotificationTransitions {
     return result.affected === 1;
   }
 
+  /** T7: blocked by policy just before sending. Fenced like markFailed. */
+  async markSuppressed(
+    id: number,
+    attemptNo: number,
+    reason: string,
+  ): Promise<boolean> {
+    const result = await this.notifications.update(
+      { id, status: NotificationStatus.Sending, attemptCount: attemptNo },
+      {
+        status: NotificationStatus.Suppressed,
+        lastErrorCode: reason,
+        leaseUntil: null,
+      },
+    );
+    return result.affected === 1;
+  }
+
   /**
    * T8: DEAD -> QUEUED by an operator. attempt_count is kept, not reset: it
    * numbers delivery_attempt rows (unique per notification) and fences

@@ -43,10 +43,15 @@ export interface NotificationProvider {
  * never will (bad address, unregistered token).
  */
 export class ProviderError extends Error {
+  /**
+   * @param invalidRecipient the address itself was rejected, so the worker
+   *   adds it to the suppression list (scenario 4)
+   */
   constructor(
     readonly code: string,
     readonly transient: boolean,
     message: string,
+    readonly invalidRecipient = false,
   ) {
     super(message);
     this.name = 'ProviderError';
