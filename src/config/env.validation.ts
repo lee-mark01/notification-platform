@@ -66,6 +66,15 @@ export class EnvironmentVariables {
   @IsNotEmpty()
   DB_PASSWORD: string;
 
+  // Connections per process. At least the jobs a worker runs at once (the
+  // send queues' concurrency adds up to 30): with mysql2's default of 10,
+  // jobs queued for a connection and throughput fell to 72% of the provider
+  // limit at 30 concurrent jobs, 58% at 50 (load/perf).
+  @IsInt()
+  @Min(1)
+  @Max(200)
+  DB_POOL_SIZE: number = 30;
+
   @IsString()
   @IsNotEmpty()
   REDIS_HOST: string;
@@ -217,6 +226,14 @@ export class EnvironmentVariables {
   @IsInt()
   @Min(0)
   SWEEP_STUCK_AFTER_MS: number = 600_000;
+
+  // Load tests only: the same concurrency on every send queue instead of
+  // the per-queue defaults in workers.service.ts.
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(200)
+  WORKER_CONCURRENCY?: number;
 
   // Fixed delay per fake send, for load tests (D10).
   @IsInt()

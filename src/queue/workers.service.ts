@@ -17,7 +17,8 @@ import { rateLimits } from './rate-limits';
 import { SendProcessor } from './send.processor';
 
 // Jobs processed at once per queue in this process. Transactional queues get
-// more so a marketing burst cannot slow them; tuned by measurement in Phase 7.
+// more so a marketing burst cannot slow them. Their sum (30) is what
+// DB_POOL_SIZE must cover (load/perf).
 export const CONCURRENCY: Record<SendQueueName, number> = {
   [QueueNames.EmailTransactional]: 10,
   [QueueNames.EmailMarketing]: 5,
@@ -71,7 +72,9 @@ export class WorkersService
       }),
       routing: this.config.get('QUEUE_ROUTING', { infer: true }),
     });
-    for (const [name, concurrency] of Object.entries(CONCURRENCY)) {
+    const override = this.config.get('WORKER_CONCURRENCY', { infer: true });
+    for (const [name, defaultConcurrency] of Object.entries(CONCURRENCY)) {
+      const concurrency = override ?? defaultConcurrency;
       const worker = new Worker<SendJobData>(
         name,
         // Every log made while processing carries the job's ids, including
