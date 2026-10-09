@@ -187,6 +187,7 @@ npm run client:create -- my-service   # API 키 발급 (한 번만 표시)
 - 실패는 일시·영구로 분류합니다. 일시 오류는 지수 백오프 + jitter(기본 2초부터, 최대 5번 시도)로 재시도하고, 마지막 시도까지 실패하면 `DEAD`로 바꿔 DLQ(`notification-dlq`)로 옮깁니다. 영구 오류는 재시도 없이 `FAILED`입니다.
   - 장애 시나리오 3: 5xx 3번 후 성공 → `SENT`, 시도 기록 4행 (E2E)
   - 장애 시나리오 5: 5번 모두 실패 → `DEAD` + DLQ job (E2E)
+- 운영자는 `GET /admin/notifications`로 기간(최대 92일)·채널·유형·상태·수신자·템플릿을 조합해 발송 이력을 최신순으로 찾습니다(커서 페이지네이션).
 - 운영자는 `GET /admin/stats/read-rates`로 템플릿·채널별 읽음률(푸시는 클릭·알림함, 이메일은 Open 이벤트 기준 근사치)을 봅니다.
 - 운영자는 `X-Admin-Key`로 `GET /admin/dlq`(DEAD 목록)와 `POST /admin/dlq/redrive`(다시 보내기)를 씁니다. DEAD가 아닌 건은 건너뛰므로 같은 redrive를 두 번 눌러도 한 번만 다시 보냅니다(E2E: DEAD → redrive → SENT).
 - 커밋 후 큐 등록에 실패해 `PENDING`으로 남은 알림은 Sweeper가 다시 등록합니다. Outbox 테이블 대신 알림 행의 상태를 안전망으로 씁니다([ADR-0003](docs/adr/0003-sweeper-over-outbox.md)).
