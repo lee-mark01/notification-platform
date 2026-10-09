@@ -75,12 +75,12 @@ describe('Per-queue rate limit (e2e)', () => {
       ids.map(async (id) => (await queue.getJob(jobIdFor(id)))!.processedOn!),
     );
     started.sort((a, b) => a - b);
-    // 6 jobs at 2 per second need three windows: the last starts at least
-    // about 2 s after the first. Without the limiter all 6 start at once.
+    // BullMQ's limiter is a fixed window that opens with the first job, so
+    // the end of one window and the start of the next can run up to 4 jobs
+    // close together. What always holds: the third job waits for the second
+    // window, and 6 jobs need three windows. Without the limiter all 6 start
+    // within a few hundred milliseconds.
+    expect(started[2] - started[0]).toBeGreaterThanOrEqual(900);
     expect(started[5] - started[0]).toBeGreaterThanOrEqual(1_800);
-    // No window ran more than 2.
-    for (let i = 2; i < started.length; i += 1) {
-      expect(started[i] - started[i - 2]).toBeGreaterThanOrEqual(900);
-    }
   }, 30_000);
 });

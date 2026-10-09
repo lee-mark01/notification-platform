@@ -197,6 +197,7 @@ npm run client:create -- my-service   # API 키 발급 (한 번만 표시)
 - 발송 직전에 수신거부 목록과 마케팅 동의를 확인합니다. 접수와 발송 사이에 사용자가 동의를 철회해도 막힙니다. 막힌 알림은 `SUPPRESSED`가 되고 Provider를 부르지 않습니다.
   - 장애 시나리오 8: 수신거부 주소 → `SUPPRESSED`, 시도 기록 0행 (E2E)
   - 장애 시나리오 4: Provider가 주소 자체를 거부 → 재시도 없이 `FAILED` + 수신거부 등록, 다음 알림은 Provider 전에 차단 (E2E)
+  - 운영자는 `/admin/suppressions`로 수신거부 목록을 보고, 주소를 직접 차단(`POST`)하거나 해제(`DELETE`)합니다. 해제해도 행은 기록으로 남고, 다시 차단하면 같은 행을 씁니다(E2E: 등록 → `SUPPRESSED` → 해제 → `SENT`).
   - 마케팅은 사전 동의한 사용자에게만 보냅니다(`PUT /me/marketing-consent`). 사용자 정보가 없는 주소로 가는 마케팅은 동의를 확인할 수 없어 보내지 않습니다.
 
 ## 대량 발송
