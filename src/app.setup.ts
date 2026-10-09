@@ -1,6 +1,7 @@
 import { ConfigService } from '@nestjs/config';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { Logger } from 'nestjs-pino';
 import { ProblemDetailsFilter } from './common/problem/problem-details.filter';
 import {
   FieldErrorDto,
@@ -12,6 +13,8 @@ import type { EnvironmentVariables } from './config/env.validation';
 // Global wiring shared by main.ts and E2E tests. Tests build the app without
 // main.ts, so anything registered only there would be missing under test.
 export function configureApp(app: NestExpressApplication): void {
+  // Nest's own Logger calls go through pino from here on.
+  app.useLogger(app.get(Logger));
   // Do not advertise the server framework in every response.
   app.disable('x-powered-by');
   // ETags mean one thing here: the version for If-Match on templates. Express
@@ -32,8 +35,9 @@ export function configureApp(app: NestExpressApplication): void {
     app.enableCors({
       origin: origins,
       // Browsers hide response headers from scripts unless listed here; the
-      // API returns the created resource in Location and versions in ETag.
-      exposedHeaders: ['ETag', 'Location'],
+      // API returns the created resource in Location, versions in ETag and
+      // the correlation id in X-Request-Id.
+      exposedHeaders: ['ETag', 'Location', 'X-Request-Id'],
     });
   }
 

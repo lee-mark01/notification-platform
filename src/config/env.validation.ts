@@ -3,6 +3,7 @@ import { QueueRouting } from '../queue/queue.constants';
 import {
   IsBoolean,
   IsEnum,
+  IsIn,
   IsInt,
   IsNotEmpty,
   IsNumber,
@@ -34,6 +35,10 @@ export enum PushProviderKind {
 export class EnvironmentVariables {
   @IsEnum(Environment)
   NODE_ENV: Environment = Environment.Development;
+
+  // pino level. development prints readable lines, other environments JSON.
+  @IsIn(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'])
+  LOG_LEVEL: string = 'info';
 
   @IsInt()
   @Min(0)
