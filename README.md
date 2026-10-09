@@ -188,6 +188,11 @@ npm run client:create -- my-service   # API 키 발급 (한 번만 표시)
   - 장애 시나리오 3: 5xx 3번 후 성공 → `SENT`, 시도 기록 4행 (E2E)
   - 장애 시나리오 5: 5번 모두 실패 → `DEAD` + DLQ job (E2E)
 - 큐 상태는 `GET /admin/queues/metrics`(큐별 대기·처리 중·지연·실패 건수와 DLQ)와 Bull Board(`/admin/queues/board`, 브라우저는 Basic 인증에 관리자 키)로 봅니다. Bull Board는 읽기 전용입니다. Redis에서 job을 직접 고치면 DB 상태와 어긋나므로, 다시 보내기는 redrive API로만 합니다.
+
+  ![Bull Board: 큐별 job 수 (전용 스택에서 마케팅 3,000건 처리 직후)](docs/images/p7-bull-board.png)
+
+  ![Bull Board: job data에는 알림 id와 요청의 상관 ID만 있습니다](docs/images/p7-bull-board-queue.png)
+
 - 운영자는 `GET /admin/notifications`로 기간(최대 92일)·채널·유형·상태·수신자·템플릿을 조합해 발송 이력을 최신순으로 찾습니다(커서 페이지네이션).
 - 운영자는 `GET /admin/stats/summary`로 기간·채널·유형별 상태 건수, 성공률, 읽음률을 봅니다. 성공률에서 정책으로 막힌 `SUPPRESSED`와 처리 중인 건은 뺍니다(실패가 아니므로).
 - 운영자는 `GET /admin/stats/read-rates`로 템플릿·채널별 읽음률(푸시는 클릭·알림함, 이메일은 Open 이벤트 기준 근사치)을 봅니다.
