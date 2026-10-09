@@ -199,14 +199,15 @@ erDiagram
 
 인덱스 (각각 어떤 조회를 위한 것인지):
 
-| 이름                                  | 컬럼                                    | 쓰는 곳                                                          |
-| ------------------------------------- | --------------------------------------- | ---------------------------------------------------------------- |
-| `uq_notification_provider_message_id` | (provider_message_id)                   | 웹훅: SES MessageId로 알림 찾기. NULL은 유니크 검사에서 제외된다 |
-| `ix_notification_status_updated_at`   | (status, updated_at)                    | Sweeper: "PENDING이고 N분 이상 지난 것", 관리자: DEAD 목록       |
-| `ix_notification_user_created`        | (user_id, created_at, id)               | 알림함: 내 알림 최신순 커서 페이지                               |
-| `ix_notification_user_read`           | (user_id, read_at)                      | 안읽음 개수: `WHERE user_id = ? AND read_at IS NULL`             |
-| `ix_notification_batch`               | (batch_id)                              | 배치 진행 상황                                                   |
-| `ix_notification_created_channel`     | (created_at, channel, category, status) | 기간별 통계, 발송 이력 검색 (Phase 6에서 EXPLAIN으로 조정)       |
+| 이름                                  | 컬럼                                                          | 쓰는 곳                                                          |
+| ------------------------------------- | ------------------------------------------------------------- | ---------------------------------------------------------------- |
+| `uq_notification_provider_message_id` | (provider_message_id)                                         | 웹훅: SES MessageId로 알림 찾기. NULL은 유니크 검사에서 제외된다 |
+| `ix_notification_status_updated_at`   | (status, updated_at)                                          | Sweeper: "PENDING이고 N분 이상 지난 것", 관리자: DEAD 목록       |
+| `ix_notification_user_created`        | (user_id, created_at, id)                                     | 알림함: 내 알림 최신순 커서 페이지                               |
+| `ix_notification_user_read`           | (user_id, read_at)                                            | 안읽음 개수: `WHERE user_id = ? AND read_at IS NULL`             |
+| `ix_notification_batch`               | (batch_id)                                                    | 배치 진행 상황                                                   |
+| `ix_notification_created_at`          | (created_at) — InnoDB에서 (created_at, id)                    | 발송 이력 검색: 역순으로 읽다 한 페이지에서 멈춤 (#83)           |
+| `ix_notification_stats`               | (created_at, channel, category, status, template_id, read_at) | 통계 요약·읽음률을 행 조회 없이 (커버링, #83)                    |
 
 ### notification_batch (Phase 5)
 
@@ -326,7 +327,7 @@ SNS가 보낸 SES 이벤트. 같은 메시지의 중복 수신을 막고 원본�
 
 ### 2. 통계는 실시간 집계인가, 집계 테이블인가?
 
-- **처음에는 실시간 집계**: `ix_notification_created_channel (created_at, channel, category, status)`로 기간 조건을 범위 스캔하고 그룹핑한다.
+- **처음에는 실시간 집계**: 처음엔 `(created_at, channel, category, status)` 인덱스로 시작했고, #83에서 100만 건으로 재 본 뒤 `template_id`, `read_at`까지 넣은 커버링 인덱스 `ix_notification_stats`로 바꿨다. 7일 집계 통계 요약 56ms, 읽음률 50ms라 집계 테이블은 아직 만들지 않는다([측정](../../load/explain/README.md)).
 - Phase 6에서 100만 건 시드로 EXPLAIN과 응답 시간을 잰 뒤, 느리면 시간 단위 집계 테이블(`notification_stats_hourly`)을 주기 작업으로 채운다. 측정 전에 집계 테이블부터 만들면 동기화 문제만 늘어난다.
 
 ### 3. 이력이 계속 쌓이면?

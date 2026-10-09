@@ -131,6 +131,17 @@ describe('GET /admin/notifications (e2e)', () => {
     expect(byEmail.items).toEqual([]);
   });
 
+  // An inner join on live templates used to hide these (#83).
+  it('keeps notifications of a deleted template', async () => {
+    const id = await insert({ template: push, recipientEmail: null });
+    await dataSource.getRepository(Template).softDelete(push.id);
+
+    const page = await search(`${PERIOD}&templateKey=chat-new-message`);
+    expect(page.items.map((n) => [n.id, n.templateKey])).toEqual([
+      [id, 'chat-new-message'],
+    ]);
+  });
+
   it('pages with a cursor, ordering same-time rows by id', async () => {
     const ids: number[] = [];
     for (let i = 0; i < 5; i += 1) ids.push(await insert({ createdAt: at(3) }));

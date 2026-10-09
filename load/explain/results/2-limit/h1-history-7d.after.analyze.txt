@@ -1,0 +1,10 @@
+-> Limit: 51 row(s)  (actual time=306..306 rows=51 loops=1)
+    -> Sort row IDs: n.created_at DESC, n.id DESC, limit input to 51 row(s) per chunk  (actual time=306..306 rows=51 loops=1)
+        -> Table scan on <temporary>  (cost=117840..118428 rows=46825) (actual time=270..301 rows=77825 loops=1)
+            -> Temporary table  (cost=117840..117840 rows=46825) (actual time=270..270 rows=77825 loops=1)
+                -> Inner hash join (t.id = n.template_id)  (cost=113157 rows=46825) (actual time=142..174 rows=77825 loops=1)
+                    -> Filter: (t.deleted_at is null)  (cost=0.00711 rows=1) (actual time=0.0224..0.0274 rows=3 loops=1)
+                        -> Table scan on t  (cost=0.00711 rows=3) (actual time=0.0189..0.0235 rows=3 loops=1)
+                    -> Hash
+                        -> Index range scan on n using ix_notification_created_channel over ('2026-10-03 00:00:00.000' <= created_at < '2026-10-10 00:00:00.000'), with index condition: ((n.created_at >= TIMESTAMP'2026-10-03 00:00:00') and (n.created_at < TIMESTAMP'2026-10-10 00:00:00'))  (cost=98111 rows=140476) (actual time=12.7..114 rows=77825 loops=1)
+

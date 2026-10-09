@@ -38,6 +38,9 @@ export class DlqService {
     const rows = await this.notifications.find({
       where: { status: NotificationStatus.Dead, id: MoreThan(afterId) },
       relations: { template: true },
+      // A second query for the templates, so the page is a plain LIMIT
+      // rather than TypeORM's DISTINCT pagination over a join (#83).
+      relationLoadStrategy: 'query',
       withDeleted: true,
       order: { id: 'ASC' },
       take: query.limit + 1,

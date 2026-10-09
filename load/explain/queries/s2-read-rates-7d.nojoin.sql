@@ -1,0 +1,1 @@
+SELECT `n`.`template_id`, `n`.`channel`, COUNT(*) AS sent, SUM(`n`.`read_at` IS NOT NULL) FROM `notification` `n` WHERE `n`.`created_at` >= '2026-10-03 00:00:00' AND `n`.`created_at` < '2026-10-10 00:00:00' AND `n`.`status` IN ('SENT','DELIVERED','BOUNCED','COMPLAINED') GROUP BY `n`.`template_id`, `n`.`channel`;
