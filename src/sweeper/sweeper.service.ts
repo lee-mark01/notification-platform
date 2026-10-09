@@ -1,9 +1,9 @@
 import { InjectQueue } from '@nestjs/bullmq';
 import {
+  BeforeApplicationShutdown,
   Injectable,
   Logger,
   OnApplicationBootstrap,
-  OnApplicationShutdown,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -51,7 +51,9 @@ export interface SweepResult {
  * happens per tick however many instances are up.
  */
 @Injectable()
-export class Sweeper implements OnApplicationBootstrap, OnApplicationShutdown {
+export class Sweeper
+  implements OnApplicationBootstrap, BeforeApplicationShutdown
+{
   private readonly logger = new Logger(Sweeper.name);
   private worker: Worker | null = null;
 
@@ -96,7 +98,7 @@ export class Sweeper implements OnApplicationBootstrap, OnApplicationShutdown {
       );
   }
 
-  async onApplicationShutdown(): Promise<void> {
+  async beforeApplicationShutdown(): Promise<void> {
     await this.worker?.close();
   }
 

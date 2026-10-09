@@ -1,8 +1,8 @@
 import {
+  BeforeApplicationShutdown,
   Injectable,
   Logger,
   OnApplicationBootstrap,
-  OnApplicationShutdown,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Worker } from 'bullmq';
@@ -23,6 +23,18 @@ export const CONCURRENCY: Record<SendQueueName, number> = {
   [QueueNames.PushMarketing]: 5,
 };
 
+// BullMQ's stall detection, written out because it pairs with the 60 s lease
+// (docs/design/state-machine.md). A running job's lock is renewed every
+// lockDuration / 2; if the worker dies, the lock expires and within
+// stalledInterval another worker moves the job back to waiting. maxStalledCount
+// 1: a job that stalls twice fails instead of crash-looping, and the sweeper
+// picks the notification up later.
+export const STALL_SETTINGS = {
+  lockDuration: 30_000,
+  stalledInterval: 30_000,
+  maxStalledCount: 1,
+} as const;
+
 /**
  * Starts one BullMQ worker per send queue. Built here rather than with
  * @Processor because that decorator reuses the queue's connection, which is
@@ -31,7 +43,7 @@ export const CONCURRENCY: Record<SendQueueName, number> = {
  */
 @Injectable()
 export class WorkersService
-  implements OnApplicationBootstrap, OnApplicationShutdown
+  implements OnApplicationBootstrap, BeforeApplicationShutdown
 {
   private readonly logger = new Logger(WorkersService.name);
   private readonly workers: Worker<SendJobData>[] = [];
@@ -51,8 +63,8 @@ export class WorkersService
     for (const [name, concurrency] of Object.entries(CONCURRENCY)) {
       const worker = new Worker<SendJobData>(
         name,
-        (job) => this.processor.process(job),
-        { connection, concurrency },
+        (job, token) => this.processor.process(job, token),
+        { connection, concurrency, ...STALL_SETTINGS },
       );
       let failing = false;
       worker.on('error', (error) => {
@@ -77,8 +89,11 @@ export class WorkersService
     await Promise.all(this.workers.map((worker) => worker.waitUntilReady()));
   }
 
-  // Waits for jobs in progress to finish before closing (scenario 7).
-  async onApplicationShutdown(): Promise<void> {
+  // A running job must still be able to record its result, so workers close
+  // before the database and queues do. Nest already shuts modules down from
+  // the dependents inward; beforeApplicationShutdown makes the order explicit
+  // instead of relying on that. close() waits for running jobs (scenario 7).
+  async beforeApplicationShutdown(): Promise<void> {
     await Promise.all(this.workers.map((worker) => worker.close()));
   }
 }
