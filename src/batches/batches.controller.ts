@@ -7,6 +7,7 @@ import {
   HttpStatus,
   Param,
   Post,
+  Req,
   Res,
   UseGuards,
 } from '@nestjs/common';
@@ -19,9 +20,10 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
-import type { Response } from 'express';
+import type { Request, Response } from 'express';
 import { ApiClient } from '../clients/api-client.entity';
 import { ApiKeyGuard, CurrentClient } from '../clients/api-key.guard';
+import { correlationIdOf } from '../common/logging/logger.options';
 import { idParamPipe } from '../common/http/id-param.pipe';
 import { ApiProblemResponse } from '../common/problem/problem-details.dto';
 import { ProblemTypes } from '../common/problem/problem-types';
@@ -61,9 +63,15 @@ export class BatchesController {
     @CurrentClient() client: ApiClient,
     @Headers('idempotency-key') idempotencyKey: string | undefined,
     @Body() dto: CreateBatchDto,
+    @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ): Promise<AcceptedBatchResponse> {
-    const result = await this.batches.accept(client, idempotencyKey, dto);
+    const result = await this.batches.accept(
+      client,
+      idempotencyKey,
+      dto,
+      correlationIdOf(req),
+    );
     res.status(result.status);
     res.location(`/notification-batches/${result.body.batchId}`);
     if (result.replayed) res.setHeader('Idempotent-Replayed', 'true');

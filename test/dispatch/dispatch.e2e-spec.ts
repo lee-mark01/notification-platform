@@ -104,7 +104,11 @@ describe('Dispatching accepted notifications (e2e)', () => {
       const job = await getQueue(app, queueName).getJob(jobIdFor(id));
       expect(job).toBeDefined();
       expect(job?.name).toBe(SEND_JOB);
-      expect(job?.data).toEqual({ notificationId: id });
+      // Only ids: the worker reads the content from the database.
+      expect(job?.data).toEqual({
+        notificationId: id,
+        correlationId: res.headers['x-request-id'],
+      });
 
       for (const other of SEND_QUEUES.filter((q) => q !== queueName)) {
         expect(await waitingCount(other)).toBe(0);

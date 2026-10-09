@@ -36,6 +36,9 @@ export const SEND_JOB = 'send';
 // database, so a job never holds stale or sensitive data.
 export interface SendJobData {
   notificationId: number;
+  // X-Request-Id of the request that accepted it, so worker logs can be
+  // matched to the request. Absent when the sweeper re-adds a job.
+  correlationId?: string;
 }
 
 export const DLQ_JOB = 'dead';

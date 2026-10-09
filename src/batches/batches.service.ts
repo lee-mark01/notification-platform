@@ -98,6 +98,7 @@ export class BatchesService implements BeforeApplicationShutdown {
     client: ApiClient,
     idempotencyKeyHeader: string | undefined,
     dto: CreateBatchDto,
+    correlationId?: string,
   ): Promise<AcceptBatchResult> {
     const idemKey = parseIdempotencyKey(idempotencyKeyHeader);
     const begun = await this.idempotency.begin(
@@ -156,7 +157,7 @@ export class BatchesService implements BeforeApplicationShutdown {
       throw error;
     }
 
-    this.enqueueInBackground(body.batchId);
+    this.enqueueInBackground(body.batchId, correlationId);
     return { status: HttpStatus.ACCEPTED, body, replayed: false };
   }
 
@@ -195,7 +196,7 @@ export class BatchesService implements BeforeApplicationShutdown {
    * worker's conditional claim stops a second send. Returns false if it
    * stopped early; the batch stays ENQUEUING for the sweeper.
    */
-  async enqueue(batchId: number): Promise<boolean> {
+  async enqueue(batchId: number, correlationId?: string): Promise<boolean> {
     await this.touch(batchId, [BatchStatus.Accepted, BatchStatus.Enqueuing]);
     let afterId = 0;
     for (;;) {
@@ -210,7 +211,9 @@ export class BatchesService implements BeforeApplicationShutdown {
         take: BATCH_CHUNK,
       });
       if (chunk.length === 0) break;
-      if (!(await this.dispatcher.dispatchMany(chunk))) return false;
+      if (!(await this.dispatcher.dispatchMany(chunk, correlationId))) {
+        return false;
+      }
       afterId = chunk[chunk.length - 1].id;
       // Keeps updated_at fresh so the sweeper does not resume a batch that
       // is still making progress.
@@ -229,8 +232,8 @@ export class BatchesService implements BeforeApplicationShutdown {
 
   // Not awaited by the request: 10,000 jobs take a while to add, and the
   // client only needs to know the batch is stored. Shutdown waits for it.
-  private enqueueInBackground(batchId: number): void {
-    const run = this.enqueue(batchId)
+  private enqueueInBackground(batchId: number, correlationId?: string): void {
+    const run = this.enqueue(batchId, correlationId)
       .then((done) => {
         if (!done) {
           this.logger.warn(`Batch ${batchId} left for the sweeper`);

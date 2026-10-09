@@ -70,6 +70,7 @@ export class NotificationsService {
     client: ApiClient,
     idempotencyKeyHeader: string | undefined,
     dto: CreateNotificationDto,
+    correlationId?: string,
   ): Promise<AcceptResult> {
     const idemKey = parseIdempotencyKey(idempotencyKeyHeader);
     const begun = await this.idempotency.begin(
@@ -110,7 +111,7 @@ export class NotificationsService {
 
     // Outside the transaction: the notification is already committed, so a
     // queue failure leaves it PENDING for the sweeper and still answers 202.
-    await this.dispatcher.dispatch(notification);
+    await this.dispatcher.dispatch(notification, correlationId);
     return {
       status: HttpStatus.ACCEPTED,
       body: { id: notification.id },

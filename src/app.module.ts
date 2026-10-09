@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { LoggerModule } from 'nestjs-pino';
+import { loggerParams } from './common/logging/logger.options';
 import { EnvironmentVariables, validate } from './config/env.validation';
 import { buildDataSourceOptions } from './database/database.options';
 import { AdminModule } from './admin/admin.module';
@@ -35,6 +37,14 @@ import { TemplatesModule } from './templates/templates.module';
         }),
         autoLoadEntities: true,
       }),
+    }),
+    LoggerModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: (config: ConfigService<EnvironmentVariables, true>) =>
+        loggerParams({
+          level: config.get('LOG_LEVEL', { infer: true }),
+          nodeEnv: config.get('NODE_ENV', { infer: true }),
+        }),
     }),
     RedisModule,
     HealthModule,

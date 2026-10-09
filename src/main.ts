@@ -6,7 +6,10 @@ import { configureApp } from './app.setup';
 import { EnvironmentVariables } from './config/env.validation';
 
 async function bootstrap() {
-  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  // Startup logs are held until pino is set up in configureApp.
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    bufferLogs: true,
+  });
   configureApp(app);
   // Run shutdown hooks on SIGTERM/SIGINT so workers finish their jobs before
   // the process exits (scenario 7).
