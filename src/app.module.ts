@@ -6,6 +6,7 @@ import { buildDataSourceOptions } from './database/database.options';
 import { AdminModule } from './admin/admin.module';
 import { DevicesModule } from './devices/devices.module';
 import { HealthModule } from './health/health.module';
+import { InboxModule } from './inbox/inbox.module';
 import { MeModule } from './me/me.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { WorkerModule } from './queue/worker.module';
@@ -40,6 +41,7 @@ import { TemplatesModule } from './templates/templates.module';
     NotificationsModule,
     DevicesModule,
     MeModule,
+    InboxModule,
     AdminModule,
     SweeperModule,
     WebhooksModule,
