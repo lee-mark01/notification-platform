@@ -59,7 +59,28 @@ describe('DLQ admin API (e2e)', () => {
       .status;
 
   const settled = (id: number, want: NotificationStatus) =>
-    waitFor(async () => ((await status(id)) === want ? true : undefined));
+    waitFor(async () => ((await status(id)) === want ? true : undefined)).catch(
+      async (error: unknown) => {
+        // Context for intermittent CI failures.
+        const row = await dataSource
+          .getRepository(Notification)
+          .findOneByOrFail({ id });
+        const job = await getQueue(app, QueueNames.EmailTransactional).getJob(
+          jobIdFor(id),
+        );
+        console.error('settled timeout', {
+          id,
+          want,
+          status: row.status,
+          attemptCount: row.attemptCount,
+          lastErrorCode: row.lastErrorCode,
+          jobState: job ? await job.getState() : 'no job',
+          jobAttemptsMade: job?.attemptsMade,
+          jobFailedReason: job?.failedReason,
+        });
+        throw error;
+      },
+    );
 
   // Accepts a notification whose five attempts all fail, so it ends DEAD.
   const deadNotification = async (): Promise<number> => {

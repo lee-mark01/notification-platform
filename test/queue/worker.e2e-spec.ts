@@ -103,6 +103,29 @@ describe('Send workers (e2e)', () => {
     waitFor(async () => {
       const row = await notification(id);
       return row.status === status ? row : undefined;
+    }).catch(async (error: unknown) => {
+      // Context for intermittent CI failures.
+      const row = await notification(id);
+      const job = await getQueue(app, QueueNames.EmailTransactional).getJob(
+        jobIdFor(id),
+      );
+      const counts = await getQueue(
+        app,
+        QueueNames.EmailTransactional,
+      ).getJobCounts();
+      console.error('settled timeout', {
+        id,
+        want: status,
+        status: row.status,
+        attemptCount: row.attemptCount,
+        lastErrorCode: row.lastErrorCode,
+        jobState: job ? await job.getState() : 'no job',
+        jobFailedReason: job?.failedReason,
+        jobTimestamp: job?.timestamp,
+        jobData: job ? JSON.stringify(job.data) : null,
+        counts,
+      });
+      throw error;
     });
 
   const finishedState = (jobId: string) =>
