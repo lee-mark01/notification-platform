@@ -14,6 +14,7 @@ import { Dispatcher } from '../dispatch/dispatcher.service';
 import { Notification } from '../notifications/notification.entity';
 import { NotificationStatus } from '../notifications/notification.enums';
 import { QueueNames } from '../queue/queue.constants';
+import { SesEventProcessor } from '../webhooks/ses-event.processor';
 
 const SCHEDULER_ID = 'sweep';
 // Rows checked per status group per run; the oldest first, so a backlog is
@@ -63,6 +64,7 @@ export class Sweeper
     private readonly notifications: Repository<Notification>,
     private readonly dispatcher: Dispatcher,
     @InjectQueue(QueueNames.Maintenance) private readonly maintenance: Queue,
+    private readonly sesEvents: SesEventProcessor,
   ) {}
 
   onApplicationBootstrap(): void {
@@ -76,6 +78,8 @@ export class Sweeper
       QueueNames.Maintenance,
       async () => {
         await this.sweep();
+        // SES events that arrived before their notification was SENT.
+        await this.sesEvents.reprocessPending();
       },
       { connection, concurrency: 1 },
     );

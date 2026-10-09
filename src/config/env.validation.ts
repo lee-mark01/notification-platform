@@ -113,6 +113,12 @@ export class EnvironmentVariables {
   @IsNotEmpty()
   SES_FROM_ADDRESS?: string;
 
+  // SES configuration set whose event destination is the SNS topic.
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  SES_CONFIGURATION_SET?: string;
+
   // Optional: without them the AWS SDK's default chain (IAM role) is used.
   @IsOptional()
   @IsString()
