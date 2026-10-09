@@ -8,11 +8,16 @@ declare global {
 
 export const MIGRATION_TEST_DATABASE = 'migration_test';
 
+// Docker's official images, pulled from their ECR Public mirror: CI runners
+// share IPs and hit Docker Hub's anonymous pull limit. Same images.
+const MYSQL_IMAGE = 'public.ecr.aws/docker/library/mysql:8.4';
+const REDIS_IMAGE = 'public.ecr.aws/docker/library/redis:7.4-alpine';
+
 // One MySQL and one Redis container for the whole E2E run. Tests run
 // serially (--runInBand), so they can share them without interfering.
 export default async function globalSetup(): Promise<void> {
   const [mysql, redis] = await Promise.all([
-    new MySqlContainer('mysql:8.4')
+    new MySqlContainer(MYSQL_IMAGE)
       .withDatabase('notification_test')
       .withUsername('app')
       .withUserPassword('app_password')
@@ -23,7 +28,7 @@ export default async function globalSetup(): Promise<void> {
       ])
       .start(),
     // Same eviction policy as docker-compose.yml; BullMQ requires it.
-    new RedisContainer('redis:7.4-alpine')
+    new RedisContainer(REDIS_IMAGE)
       .withCommand(['redis-server', '--maxmemory-policy', 'noeviction'])
       .start(),
   ]);

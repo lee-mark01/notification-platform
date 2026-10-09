@@ -29,6 +29,10 @@ jobs:
       DB_PASSWORD: ci_password
       REDIS_HOST: localhost
       REDIS_PORT: 6379
+      # Ryuk (Testcontainers' cleanup container) comes from Docker Hub. The
+      # runner is discarded after the job and globalTeardown stops the
+      # containers, so it is not needed here.
+      TESTCONTAINERS_RYUK_DISABLED: 'true'
     steps:
       - uses: actions/checkout@v7
 
