@@ -64,10 +64,12 @@ stateDiagram-v2
 | T5  | SENDING → DEAD                    | Worker (마지막 시도)      | `status = 'SENDING'`                        | `last_error_code`, `lease_until = NULL`                |
 | T6  | SENDING → FAILED                  | Worker                    | `status = 'SENDING'`                        | `last_error_code`, `lease_until = NULL`                |
 | T7  | SENDING → SUPPRESSED              | Worker (발송 직전 검사)   | `status = 'SENDING'`                        | `lease_until = NULL`                                   |
-| T8  | DEAD → QUEUED                     | 관리자 redrive            | `status = 'DEAD'`                           | `attempt_count = 0`, `queued_at`                       |
+| T8  | DEAD → QUEUED                     | 관리자 redrive            | `status = 'DEAD'`                           | `queued_at` (`attempt_count`는 유지\*)                 |
 | T9  | SENT → DELIVERED                  | 웹훅                      | `status = 'SENT'`                           | `delivered_at`                                         |
 | T10 | SENT·DELIVERED → BOUNCED          | 웹훅                      | `status IN ('SENT','DELIVERED')`            |                                                        |
 | T11 | SENT·DELIVERED → COMPLAINED       | 웹훅                      | `status IN ('SENT','DELIVERED')`            |                                                        |
+
+\* 초안은 redrive 때 `attempt_count = 0`이었다. 구현하며 고쳤다. 이 값은 `delivery_attempt`의 시도 번호(알림별 유니크)이자 결과 기록의 펜싱 번호라서 되돌리면 시도 번호가 겹치고 펜싱이 깨진다. 재시도 횟수는 redrive가 만드는 새 job이 새로 갖는다.
 
 읽음은 상태와 무관하게:
 

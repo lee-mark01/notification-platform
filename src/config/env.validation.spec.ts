@@ -12,6 +12,7 @@ describe('validate (environment variables)', () => {
     REDIS_HOST: 'localhost',
     REDIS_PORT: '6379',
     JWT_SECRET: 'x'.repeat(32),
+    ADMIN_API_KEY: 'a'.repeat(32),
   };
 
   it('converts numeric strings to numbers', () => {
