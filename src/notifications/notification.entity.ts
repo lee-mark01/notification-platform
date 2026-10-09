@@ -8,6 +8,7 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
+import { NotificationBatch } from '../batches/notification-batch.entity';
 import { ApiClient } from '../clients/api-client.entity';
 import { Template, TemplateChannel } from '../templates/template.entity';
 import { AppUser } from '../users/app-user.entity';
@@ -45,9 +46,15 @@ export class Notification {
   })
   client?: ApiClient;
 
-  // Batches arrive in Phase 5; the foreign key is added with that table.
   @Column({ name: 'batch_id', type: 'bigint', unsigned: true, nullable: true })
   batchId: number | null;
+
+  @ManyToOne(() => NotificationBatch, { onDelete: 'RESTRICT' })
+  @JoinColumn({
+    name: 'batch_id',
+    foreignKeyConstraintName: 'fk_notification_batch',
+  })
+  batch?: NotificationBatch;
 
   @Column({ name: 'user_id', type: 'bigint', unsigned: true, nullable: true })
   userId: number | null;

@@ -222,6 +222,8 @@ erDiagram
 | status                 | VARCHAR(20)        | `ACCEPTED` → `ENQUEUING` → `ENQUEUED` |
 | created_at, updated_at | DATETIME(3)        |                                       |
 
+인덱스: `ix_notification_batch_status_updated_at` (status, updated_at) — Sweeper가 등록이 멈춘 배치를 찾는다. `notification.batch_id`에 FK `fk_notification_batch`.
+
 ### delivery_attempt (Phase 2)
 
 발송 시도마다 1행. 장애 시나리오 3("5xx 3번 후 성공 → 4행")의 증거 테이블이다.
@@ -320,7 +322,7 @@ SNS가 보낸 SES 이벤트. 같은 메시지의 중복 수신을 막고 원본�
 - 500행씩 묶어 한 문장으로 insert한다(`INSERT ... VALUES (...), (...)`). 1만 행이면 20번의 왕복이다.
 - 비용은 행 수보다 **보조 인덱스 수**에 비례한다. 행 하나마다 모든 보조 인덱스에도 쓰기가 일어나기 때문이다. 그래서 `notification`의 인덱스는 위 표의 조회가 실제로 필요한 것만 둔다.
 - PK가 자동 증가라 새 행이 클러스터드 인덱스의 끝에 붙는다. 무작위 UUID를 PK로 쓰면 페이지 분할이 생겨 느려진다.
-- 다중 행 insert의 자동 증가 값이 **연속이라고 가정하지 않는다.** MySQL 8의 기본 `innodb_autoinc_lock_mode = 2`(interleaved)에서는 다른 insert가 동시에 실행되면 한 문장이 받은 값이 연속이 아닐 수 있다고 공식 문서가 밝힌다. 그래서 BullMQ `jobId`에 쓸 id는 청크 insert 뒤 `batch_id`로 다시 조회해서 얻는다. ORM이 반환하는 id 목록이 이 가정에 기대는지도 Phase 5에서 확인한다.
+- 다중 행 insert의 자동 증가 값이 **연속이라고 가정하지 않는다.** MySQL 8의 기본 `innodb_autoinc_lock_mode = 2`(interleaved)에서는 다른 insert가 동시에 실행되면 한 문장이 받은 값이 연속이 아닐 수 있다고 공식 문서가 밝힌다. 그래서 BullMQ `jobId`에 쓸 id는 청크 insert 뒤 `batch_id`로 다시 조회해서 얻는다. 확인 결과 TypeORM의 MySQL 드라이버는 다중 행 insert 뒤 첫 id에 1씩 더해 엔티티 id를 채운다(연속 가정). 그래서 대량 insert는 `updateEntity(false)`로 이 값을 쓰지 않는다(PR #73).
 
 ### 2. 통계는 실시간 집계인가, 집계 테이블인가?
 

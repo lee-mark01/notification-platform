@@ -36,6 +36,7 @@ type PreparedNotification = Omit<
   Notification,
   | 'id'
   | 'client'
+  | 'batch'
   | 'user'
   | 'template'
   | 'createdAt'
@@ -265,7 +266,7 @@ export function parseIdempotencyKey(header: string | undefined): string {
   return header;
 }
 
-function templateUnusable(errors: FieldError[]): ProblemException {
+export function templateUnusable(errors: FieldError[]): ProblemException {
   return new ProblemException(
     ProblemTypes.TEMPLATE_UNUSABLE,
     'The template cannot be used with this request.',
@@ -273,7 +274,10 @@ function templateUnusable(errors: FieldError[]): ProblemException {
   );
 }
 
-function validationFailed(field: string, message: string): ProblemException {
+export function validationFailed(
+  field: string,
+  message: string,
+): ProblemException {
   return new ProblemException(
     ProblemTypes.VALIDATION_FAILED,
     'One or more fields are invalid.',
