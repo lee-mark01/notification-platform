@@ -336,6 +336,18 @@ API는 `PUSH_PROVIDER=fcm`, `CORS_ORIGINS=http://localhost:8080`으로 띄웁니
 - 목록은 id 순서의 커서 페이지네이션입니다. `nextCursor`는 불투명한 값으로 그대로 다음 요청에 전달합니다.
 - CORS를 켤 때는 브라우저 클라이언트가 읽을 수 있도록 `exposedHeaders`에 `ETag`와 `Location`을 포함해야 합니다.
 
+## 로그와 추적
+
+- pino 구조화 로그입니다. 개발 환경(`NODE_ENV=development`)은 읽기 쉬운 한 줄, 그 밖에는 JSON입니다. 레벨은 `LOG_LEVEL`.
+- 요청마다 `X-Request-Id`를 받거나(영숫자·`._:-` 128자 이내) 새로 만들어 응답 헤더로 돌려줍니다. 이 값이 상관 ID로 job data에 들어가고, Worker가 그 job을 처리하는 동안 남기는 모든 로그에 `correlationId`, `notificationId`, `jobId`, `queue`가 붙습니다.
+- Sweeper가 다시 넣은 job과 SES 웹훅은 요청이 다르므로 `notificationId`로 이어 봅니다.
+- API 키·관리자 키·`Authorization`은 로그에 남기지 않습니다.
+
+```json
+{"req":{"id":"trace-xyz","method":"POST","url":"/notifications"},"res":{"statusCode":202},"responseTime":45,"msg":"request completed"}
+{"queue":"email-transactional","jobId":"notification-1","notificationId":1,"correlationId":"trace-xyz","context":"SendProcessor","msg":"Notification 1 suppressed: SUPPRESSED_ADDRESS"}
+```
+
 ## 헬스체크
 
 | 경로                | 확인 대상                      | 응답                                     |

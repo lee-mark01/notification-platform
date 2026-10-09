@@ -15,6 +15,10 @@ Phase 2~6에서 구현할 API의 계약이다. 이미 구현한 것은 표시했
 - 401 응답은 `about:blank`와 `WWW-Authenticate` 헤더를 쓴다.
 - 클라이언트·사용자는 자기 리소스만 볼 수 있다. 남의 리소스는 존재를 숨기기 위해 403이 아니라 404로 응답한다.
 
+## 요청 ID (`X-Request-Id`)
+
+모든 응답에 `X-Request-Id`가 붙는다. 요청에 영숫자·`._:-` 128자 이내의 값이 있으면 그대로, 아니면 UUID를 만든다. 발송 접수 요청의 ID는 job data의 `correlationId`가 되어 Worker 로그까지 이어진다.
+
 ## 멱등성 (`Idempotency-Key`)
 
 `POST /notifications`, `POST /notification-batches`는 `Idempotency-Key` 헤더가 필수다. 규칙은 [상태 머신 — 멱등 키](state-machine.md#멱등-키)와 같다.
