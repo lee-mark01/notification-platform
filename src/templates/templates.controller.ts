@@ -11,6 +11,7 @@ import {
   Post,
   Query,
   Res,
+  UseGuards,
 } from '@nestjs/common';
 import {
   ApiCreatedResponse,
@@ -18,15 +19,22 @@ import {
   ApiNoContentResponse,
   ApiOkResponse,
   ApiOperation,
+  ApiSecurity,
   ApiTags,
+  ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import type { Response } from 'express';
+import { AdminKeyGuard } from '../admin/admin-key.guard';
 import { etagFor } from '../common/http/etag';
 import { idParamPipe } from '../common/http/id-param.pipe';
 import { ApiProblemResponse } from '../common/problem/problem-details.dto';
 import { ProblemTypes } from '../common/problem/problem-types';
 import { CreateTemplateDto } from './dto/create-template.dto';
 import { ListTemplatesQuery } from './dto/list-templates.query';
+import {
+  PreviewTemplateDto,
+  TemplatePreviewResponse,
+} from './dto/preview-template.dto';
 import {
   TemplatePageResponse,
   TemplateResponse,
@@ -39,9 +47,11 @@ const ETAG_HEADER = {
   ETag: { description: 'Current version; send it back as If-Match.' },
 };
 
-// Admin guard arrives in Phase 6.
 @ApiTags('admin: templates')
+@ApiSecurity('admin-key')
+@ApiUnauthorizedResponse({ description: 'Missing or wrong X-Admin-Key' })
 @Controller('admin/templates')
+@UseGuards(AdminKeyGuard)
 export class TemplatesController {
   constructor(private readonly templates: TemplatesService) {}
 
@@ -88,6 +98,24 @@ export class TemplatesController {
     @Res({ passthrough: true }) res: Response,
   ): Promise<TemplateResponse> {
     return this.withETag(res, await this.templates.get(id));
+  }
+
+  @Post(':id/preview')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Render the template with variables, without sending',
+    description:
+      'Applies the same checks as intake: missing required variables and an over-long title are 422.',
+  })
+  @ApiOkResponse({ type: TemplatePreviewResponse })
+  @ApiProblemResponse(ProblemTypes.VALIDATION_FAILED)
+  @ApiProblemResponse(ProblemTypes.RESOURCE_NOT_FOUND)
+  @ApiProblemResponse(ProblemTypes.TEMPLATE_UNUSABLE)
+  preview(
+    @Param('id', idParamPipe()) id: number,
+    @Body() dto: PreviewTemplateDto,
+  ): Promise<TemplatePreviewResponse> {
+    return this.templates.preview(id, dto.variables ?? {});
   }
 
   @Patch(':id')

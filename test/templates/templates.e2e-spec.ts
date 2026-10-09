@@ -6,6 +6,7 @@ import { createTestApp } from '../support/app';
 import { createTestDataSource, resetDatabase } from '../support/database';
 
 const BASE = '/admin/templates';
+const ADMIN = { 'X-Admin-Key': process.env.ADMIN_API_KEY as string };
 const PROBLEM_JSON = /^application\/problem\+json/;
 
 const emailTemplate = {
@@ -46,7 +47,8 @@ describe('Templates (e2e)', () => {
     await app.close();
   });
 
-  const http = () => request(app.getHttpServer());
+  // Every template endpoint is an operator API.
+  const http = () => request.agent(app.getHttpServer()).set(ADMIN);
 
   async function create(body: object) {
     return http().post(BASE).send(body).expect(201);
@@ -398,6 +400,81 @@ describe('Templates (e2e)', () => {
         (e) => e.field,
       );
       expect(new Set(fields)).toEqual(new Set([field]));
+    });
+  });
+
+  describe('admin key', () => {
+    it.each([
+      ['no key', {}],
+      ['a wrong key', { 'X-Admin-Key': 'not-the-key' }],
+    ])('rejects a request with %s', async (_label, headers) => {
+      await request(app.getHttpServer()).get(BASE).set(headers).expect(401);
+      await request(app.getHttpServer())
+        .post(BASE)
+        .set(headers)
+        .send(emailTemplate)
+        .expect(401);
+    });
+  });
+
+  describe('preview', () => {
+    const preview = (id: number, variables?: object) =>
+      http().post(`${BASE}/${id}/preview`).send({ variables });
+    const createId = async (body: object) =>
+      ((await create(body)).body as { id: number }).id;
+
+    it('renders an email exactly as intake would store it', async () => {
+      const id = await createId({
+        ...emailTemplate,
+        textBody: 'Code {{code}}',
+      });
+
+      const res = await preview(id, { code: '<b>1</b>' }).expect(200);
+
+      expect(res.body).toEqual({
+        channel: 'email',
+        subject: 'Verify your email',
+        html: '<p>Your code is &lt;b&gt;1&lt;/b&gt;</p>',
+        text: 'Code <b>1</b>',
+        title: null,
+        body: null,
+        data: null,
+      });
+    });
+
+    it('renders a push with its data', async () => {
+      const id = await createId(pushTemplate);
+      const res = await preview(id, {
+        sender: 'Kim',
+      }).expect(200);
+
+      expect(res.body).toMatchObject({
+        channel: 'push',
+        title: 'New message',
+        body: 'Kim sent you a message',
+        data: { screen: 'chat' },
+        subject: null,
+      });
+    });
+
+    it('reports missing variables as intake does', async () => {
+      const id = await createId(emailTemplate);
+      const res = await preview(id)
+        .expect(422)
+        .expect('Content-Type', PROBLEM_JSON);
+
+      expect(res.body).toMatchObject({
+        type: '/problems/template-unusable',
+        errors: [
+          { field: 'variables', message: 'missing required variables: code' },
+        ],
+      });
+    });
+
+    it('returns 404 for a deleted template', async () => {
+      const id = await createId(emailTemplate);
+      await http().delete(`${BASE}/${id}`).expect(204);
+      await preview(id, { code: '1' }).expect(404);
     });
   });
 });
