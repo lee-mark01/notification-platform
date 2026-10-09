@@ -215,7 +215,7 @@ Location: /notifications/1024
 
 ## 웹훅
 
-### `POST /webhooks/ses` (구현됨: 수신·검증·저장. 이벤트 반영은 #64)
+### `POST /webhooks/ses` (구현됨)
 
 - SNS는 본문을 `Content-Type: text/plain`으로 보낸다. 이 경로만 원문 텍스트로 받아 JSON으로 파싱한다.
 - 처리 순서: 서명 검증(인증서 URL이 `sns.<region>.amazonaws.com` 도메인인지 포함) → `Type`별 처리.

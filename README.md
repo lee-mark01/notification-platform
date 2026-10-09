@@ -204,6 +204,12 @@ SES의 배달·반송·신고·오픈 이벤트는 Configuration Set → SNS 토
 - 저장하거나 외부 호출을 하기 전에 SNS가 보낸 메시지인지 확인합니다. 토픽 ARN이 일치해야 하고, 서명 인증서가 `sns.<region>.amazonaws.com`에서 온 것이어야 하며, 서명(SHA1/SHA256)이 맞아야 합니다. 하나라도 어긋나면 403이고 아무것도 저장하지 않습니다(장애 시나리오 11).
 - SNS는 2xx를 받을 때까지 다시 보냅니다. `MessageId` 유니크 제약으로 같은 메시지는 한 번만 저장하고, 중복에도 200으로 답합니다(장애 시나리오 10).
 - 구독 확인 메시지는 검증한 뒤 SNS 주소일 때만 `SubscribeURL`을 호출합니다.
+- 이벤트 반영(조건부 UPDATE라 늦게 온 이벤트는 되돌리지 못함):
+  - Delivery → `SENT`에서 `DELIVERED`
+  - 영구 Bounce → `BOUNCED` + 수신거부(HARD_BOUNCE). 일시 Bounce(메일함 가득 참 등)는 상태를 바꾸지 않음
+  - Complaint → `COMPLAINED` + 수신거부(COMPLAINT)
+  - Open → 첫 번째 오픈 시각을 `read_at`에(이미지 차단·선로딩 때문에 근사치)
+- SES는 우리가 `SENT`를 기록하기 전에 이벤트를 보낼 수 있습니다. 그런 이벤트는 미처리로 남기고 Sweeper 주기마다 다시 매칭합니다(24시간까지). 수신거부는 매칭과 상관없이 받는 즉시 등록합니다.
 
 ## 사용자 API
 
