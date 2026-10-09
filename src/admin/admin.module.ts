@@ -10,6 +10,10 @@ import { DlqController } from './dlq/dlq.controller';
 import { DlqService } from './dlq/dlq.service';
 import { HistoryController } from './history/history.controller';
 import { HistoryService } from './history/history.service';
+import {
+  QueueMetricsController,
+  QueueMetricsService,
+} from './queues/queue-metrics';
 import { ReadRatesController, ReadRatesService } from './stats/read-rates';
 import { StatsSummaryController, StatsSummaryService } from './stats/summary';
 
@@ -24,6 +28,7 @@ import { StatsSummaryController, StatsSummaryService } from './stats/summary';
     HistoryController,
     ReadRatesController,
     StatsSummaryController,
+    QueueMetricsController,
   ],
   providers: [
     AdminKeyGuard,
@@ -32,6 +37,7 @@ import { StatsSummaryController, StatsSummaryService } from './stats/summary';
     ReadRatesService,
     HistoryService,
     StatsSummaryService,
+    QueueMetricsService,
   ],
 })
 export class AdminModule {}
