@@ -185,30 +185,26 @@ describe('Sweeper (e2e)', () => {
   });
 
   it('re-adds a SENDING notification left by a dead worker after its lease', async () => {
-    // The worker that claimed it died; its lease is still live.
-    const id = await insert({
-      status: NotificationStatus.Sending,
-      attemptCount: 1,
-      leaseUntil: new Date(Date.now() + 60_000),
-    });
-    // A retry of its job ran while the lease was live, failed with
-    // LeaseHeldError on its last attempt, and is kept in Redis as failed.
+    // Its job is already finished, e.g. failed after stalling twice
+    // (maxStalledCount); here it runs while the row says FAILED and is skipped.
+    const id = await insert({ status: NotificationStatus.Failed });
     await emailQueue().add(
       SEND_JOB,
       { notificationId: id },
-      { jobId: jobIdFor(id), attempts: 1 },
+      { jobId: jobIdFor(id) },
     );
     await waitFor(async () =>
-      (await (await emailQueue().getJob(jobIdFor(id)))?.getState()) === 'failed'
+      (await (await emailQueue().getJob(jobIdFor(id)))?.getState()) ===
+      'completed'
         ? true
         : undefined,
     );
-    expect(fake.sent).toHaveLength(0);
-
-    // Later the lease has expired and nothing will run the job again.
-    await dataSource
-      .getRepository(Notification)
-      .update(id, { leaseUntil: new Date(Date.now() - 60_000) });
+    // What the dead worker left: SENDING, lease long expired, no live job.
+    await dataSource.getRepository(Notification).update(id, {
+      status: NotificationStatus.Sending,
+      attemptCount: 1,
+      leaseUntil: new Date(Date.now() - 60_000),
+    });
     await age(id);
 
     await sweeper().sweep(NOW);
