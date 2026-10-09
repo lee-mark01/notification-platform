@@ -239,6 +239,16 @@ npm run client:create -- my-service   # API 키 발급 (한 번만 표시)
 
 ![100만 건에서 관리자 쿼리 전후](docs/images/p6-explain.svg)
 
+## 성능
+
+전용 Docker 스택에서 FakeProvider 지연을 100ms로 고정하고 쟀습니다(개발 PC 한 대, 비교용 수치). 방법과 원자료는 [측정 문서](load/perf/README.md)에 있습니다.
+
+- **접수**: k6 가상 사용자 10명 357건/초(p95 35ms), 50명 431건/초(p95 145ms), 모두 202.
+- **Worker 병목은 DB 커넥션 풀이었습니다.** concurrency를 올릴수록 이론값 대비 효율이 0.84(10) → 0.58(50)로 떨어졌고, 풀만 10 → 50으로 바꾸자 같은 concurrency 50에서 244 → 401건/초가 됐습니다. job은 Provider 호출 중에는 커넥션을 잡지 않지만 점유와 결과 기록에서 쓰므로, 동시에 도는 job이 풀보다 많으면 기다립니다.
+- 그래서 기본 풀을 송신 큐 concurrency 합(30)으로 올렸습니다. concurrency 30에서 197 → 243건/초(+23%), job p95 120 → 102ms.
+
+![Worker 처리량: concurrency와 DB 커넥션 풀](docs/images/p7-worker-throughput.svg)
+
 ## SES 웹훅
 
 SES의 배달·반송·신고·오픈 이벤트는 Configuration Set → SNS 토픽 → `POST /webhooks/ses`로 들어옵니다.
