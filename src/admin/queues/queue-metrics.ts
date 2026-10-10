@@ -1,5 +1,14 @@
 import { InjectQueue } from '@nestjs/bullmq';
-import { Controller, Get, Injectable, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Injectable,
+  Param,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
 import {
   ApiOkResponse,
   ApiOperation,
@@ -9,6 +18,9 @@ import {
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import type { Queue } from 'bullmq';
+import { ApiProblemResponse } from '../../common/problem/problem-details.dto';
+import { ProblemTypes } from '../../common/problem/problem-types';
+import { ProblemException } from '../../common/problem/problem.exception';
 import { QueueNames, SEND_QUEUES } from '../../queue/queue.constants';
 import { AdminKeyGuard } from '../admin-key.guard';
 
@@ -30,6 +42,12 @@ export class QueueMetrics {
 
   @ApiProperty({ example: 480, description: 'Completed jobs still kept' })
   completed: number;
+
+  @ApiProperty({
+    example: false,
+    description: 'Paused: no new job is picked up by any worker',
+  })
+  paused: boolean;
 }
 
 export class QueueMetricsResponse {
@@ -68,29 +86,62 @@ export class QueueMetricsService {
   }
 
   async collect(): Promise<QueueMetricsResponse> {
-    const queues = await Promise.all(
-      this.queues.map(async (queue) => {
-        const c = await queue.getJobCounts(
-          'waiting',
-          'prioritized',
-          'active',
-          'delayed',
-          'failed',
-          'completed',
-        );
-        return {
-          name: queue.name,
-          waiting: (c.waiting ?? 0) + (c.prioritized ?? 0),
-          active: c.active ?? 0,
-          delayed: c.delayed ?? 0,
-          failed: c.failed ?? 0,
-          completed: c.completed ?? 0,
-        };
-      }),
-    );
+    const queues = await Promise.all(this.queues.map((q) => this.measure(q)));
     // Nothing consumes the DLQ; its jobs stay waiting until a redrive.
     const dlq = (await this.dlq.getJobCounts('waiting')).waiting ?? 0;
     return { queues: sortLike(queues, SEND_QUEUES), dlq };
+  }
+
+  /**
+   * Stops every worker from picking up new jobs on a send queue, e.g. the
+   * marketing queue during a bounce spike. Jobs already running finish;
+   * waiting jobs, and new ones added meanwhile, wait in Redis. The pause is
+   * kept in Redis, so it survives restarts until resumed.
+   */
+  async pause(name: string): Promise<QueueMetrics> {
+    const queue = this.sendQueue(name);
+    await queue.pause();
+    return this.measure(queue);
+  }
+
+  async resume(name: string): Promise<QueueMetrics> {
+    const queue = this.sendQueue(name);
+    await queue.resume();
+    return this.measure(queue);
+  }
+
+  private sendQueue(name: string): Queue {
+    const queue = this.queues.find((q) => q.name === name);
+    if (!queue) {
+      throw new ProblemException(
+        ProblemTypes.RESOURCE_NOT_FOUND,
+        `${name} is not a send queue.`,
+      );
+    }
+    return queue;
+  }
+
+  private async measure(queue: Queue): Promise<QueueMetrics> {
+    const [c, paused] = await Promise.all([
+      queue.getJobCounts(
+        'waiting',
+        'prioritized',
+        'active',
+        'delayed',
+        'failed',
+        'completed',
+      ),
+      queue.isPaused(),
+    ]);
+    return {
+      name: queue.name,
+      waiting: (c.waiting ?? 0) + (c.prioritized ?? 0),
+      active: c.active ?? 0,
+      delayed: c.delayed ?? 0,
+      failed: c.failed ?? 0,
+      completed: c.completed ?? 0,
+      paused,
+    };
   }
 }
 
@@ -120,5 +171,27 @@ export class QueueMetricsController {
   @ApiOkResponse({ type: QueueMetricsResponse })
   get(): Promise<QueueMetricsResponse> {
     return this.metrics.collect();
+  }
+
+  @Post(':name/pause')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Pause a send queue for every worker',
+    description:
+      'Running jobs finish; waiting and new jobs stay queued until resume. Repeating it is harmless.',
+  })
+  @ApiOkResponse({ type: QueueMetrics })
+  @ApiProblemResponse(ProblemTypes.RESOURCE_NOT_FOUND)
+  pause(@Param('name') name: string): Promise<QueueMetrics> {
+    return this.metrics.pause(name);
+  }
+
+  @Post(':name/resume')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Resume a paused send queue' })
+  @ApiOkResponse({ type: QueueMetrics })
+  @ApiProblemResponse(ProblemTypes.RESOURCE_NOT_FOUND)
+  resume(@Param('name') name: string): Promise<QueueMetrics> {
+    return this.metrics.resume(name);
   }
 }

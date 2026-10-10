@@ -46,7 +46,17 @@ SES는 반송률·신고율이 일정 수준을 넘으면 계정을 검토하거
 1. 규모 확인: `GET /admin/stats/summary?groupBy=channel,category`에서 `BOUNCED`·`COMPLAINED` 비율.
 2. 범위 좁히기: `GET /admin/notifications?status=BOUNCED,COMPLAINED&channel=email`로 어느 템플릿·클라이언트·배치인지 본다(`templateKey`, `clientId`, `batchId`).
 3. 이미 막혀 있는 것: 영구 반송과 신고는 웹훅을 받는 즉시 수신거부에 들어가, 같은 주소로는 다시 보내지 않는다. `GET /admin/suppressions?reason=HARD_BOUNCE`로 확인한다.
-4. 원인이 특정 목록(오래된 주소록)이면 그 클라이언트에 발송 중단을 요청한다. 큐를 일시 정지하는 관리자 API와 API 키 폐기 명령은 아직 없다(남은 과제). 급하면 DB에서 그 클라이언트의 `api_client.api_key_hash`를 다른 값으로 바꿔 새 요청을 막는다. 이미 큐에 들어간 알림은 그대로 나간다.
+4. 마케팅 큐를 멈춘다. 처리 중인 job만 끝나고, 나머지는 큐에 남아 기다린다. 인증 메일(거래성 큐)은 계속 나간다.
+
+   ```bash
+   curl -s -X POST "$API/admin/queues/email-marketing/pause" -H "$ADMIN"
+   # 원인을 정리한 뒤
+   curl -s -X POST "$API/admin/queues/email-marketing/resume" -H "$ADMIN"
+   ```
+
+   정지는 Redis에 남아 Worker를 재시작해도 유지된다. `GET /admin/queues/metrics`의 `paused`로 확인한다.
+
+5. 원인이 특정 목록(오래된 주소록)이면 그 클라이언트에 발송 중단을 요청한다. API 키 폐기 명령은 아직 없다(남은 과제). 급하면 DB에서 그 클라이언트의 `api_client.api_key_hash`를 다른 값으로 바꿔 새 요청을 막는다. 이미 큐에 들어간 알림은 그대로 나간다.
 
 ## 4. Redis가 죽었을 때
 

@@ -226,6 +226,7 @@ npm run client:create -- my-service   # API 키 발급 (한 번만 표시)
 - 실패는 일시·영구로 분류합니다. 일시 오류는 지수 백오프 + jitter(기본 2초부터, 최대 5번 시도)로 재시도하고, 마지막 시도까지 실패하면 `DEAD`로 바꿔 DLQ(`notification-dlq`)로 옮깁니다. 영구 오류는 재시도 없이 `FAILED`입니다.
   - 장애 시나리오 3: 5xx 3번 후 성공 → `SENT`, 시도 기록 4행 (E2E)
   - 장애 시나리오 5: 5번 모두 실패 → `DEAD` + DLQ job (E2E)
+- 반송 급증처럼 발송을 멈춰야 할 때는 `POST /admin/queues/{name}/pause`로 송신 큐 하나를 모든 Worker에서 멈춥니다(예: 마케팅만 멈추고 인증 메일은 계속).
 - 큐 상태는 `GET /admin/queues/metrics`(큐별 대기·처리 중·지연·실패 건수와 DLQ)와 Bull Board(`/admin/queues/board`, 브라우저는 Basic 인증에 관리자 키)로 봅니다. Bull Board는 읽기 전용입니다. Redis에서 job을 직접 고치면 DB 상태와 어긋나므로, 다시 보내기는 redrive API로만 합니다.
 
   ![Bull Board: 큐별 job 수 (전용 스택에서 마케팅 3,000건 처리 직후)](docs/images/p7-bull-board.png)
