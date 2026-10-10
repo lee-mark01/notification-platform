@@ -225,6 +225,7 @@ erDiagram
 | `ix_notification_user_read`           | (user_id, read_at)                                            | 안읽음 개수: `WHERE user_id = ? AND read_at IS NULL`             |
 | `ix_notification_batch`               | (batch_id)                                                    | 배치 진행 상황                                                   |
 | `ix_notification_created_at`          | (created_at) — InnoDB에서 (created_at, id)                    | 발송 이력 검색: 역순으로 읽다 한 페이지에서 멈춤 (#83)           |
+| `ix_notification_email_created`       | (recipient_email, created_at)                                 | 수신 주소로 이력 검색 (#107, 92일 5.6초 → 0.07ms)                |
 | `ix_notification_stats`               | (created_at, channel, category, status, template_id, read_at) | 통계 요약·읽음률을 행 조회 없이 (커버링, #83)                    |
 
 ### notification_batch (Phase 5)

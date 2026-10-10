@@ -29,6 +29,8 @@ const datetime3 = { type: 'datetime', precision: 3 } as const;
 // (created_at, id) in InnoDB: history pages read it backwards and stop
 // after one page (#83).
 @Index('ix_notification_created_at', ['createdAt'])
+// History search by recipient address (#107).
+@Index('ix_notification_email_created', ['recipientEmail', 'createdAt'])
 // Covers the stats queries (summary, read rates) over a period, so they never
 // touch the rows (#83).
 @Index('ix_notification_stats', [
