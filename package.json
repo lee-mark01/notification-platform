@@ -29,6 +29,7 @@
     "migration:show": "typeorm-ts-node-commonjs migration:show -d src/database/data-source.ts",
     "migration:run:prod": "typeorm migration:run -d dist/database/data-source.js",
     "client:create": "ts-node src/cli/create-api-client.ts",
+    "client:key": "ts-node src/cli/client-keys.ts",
     "user:token": "ts-node src/cli/issue-user-token.ts",
     "demo:config": "node web-push-demo/generate-config.mjs",
     "demo:serve": "node web-push-demo/serve.mjs"

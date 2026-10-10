@@ -7,9 +7,10 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { Request, Response } from 'express';
-import { Repository } from 'typeorm';
+import { IsNull, Repository } from 'typeorm';
 import { ApiClient } from './api-client.entity';
 import { hashApiKey } from './api-key';
+import { ApiKey } from './api-key.entity';
 
 export const API_KEY_HEADER = 'x-api-key';
 
@@ -17,11 +18,12 @@ type ClientRequest = Request & { apiClient?: ApiClient };
 
 // Authenticates internal services by API key. The key is looked up by its
 // SHA-256 through a unique index, so the raw key is never stored or compared.
+// A revoked key fails like an unknown one.
 @Injectable()
 export class ApiKeyGuard implements CanActivate {
   constructor(
-    @InjectRepository(ApiClient)
-    private readonly clients: Repository<ApiClient>,
+    @InjectRepository(ApiKey)
+    private readonly keys: Repository<ApiKey>,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -29,9 +31,13 @@ export class ApiKeyGuard implements CanActivate {
     const request = http.getRequest<ClientRequest>();
     const apiKey = request.header(API_KEY_HEADER);
 
-    const client = apiKey
-      ? await this.clients.findOneBy({ apiKeyHash: hashApiKey(apiKey) })
+    const key = apiKey
+      ? await this.keys.findOne({
+          where: { keyHash: hashApiKey(apiKey), revokedAt: IsNull() },
+          relations: { client: true },
+        })
       : null;
+    const client = key?.client;
     if (!client) {
       http
         .getResponse<Response>()

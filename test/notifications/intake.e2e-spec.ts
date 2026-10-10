@@ -141,14 +141,14 @@ describe('Notification intake (e2e)', () => {
 
   describe('authentication', () => {
     it('stores only the SHA-256 of the API key', async () => {
-      const rows = await dataSource.query<{ api_key_hash: string }[]>(
-        'SELECT api_key_hash FROM api_client WHERE id = ?',
+      const rows = await dataSource.query<{ key_hash: string }[]>(
+        'SELECT key_hash FROM api_key WHERE client_id = ?',
         [client.id],
       );
 
-      expect(rows[0].api_key_hash).toBe(hashApiKey(apiKey));
-      expect(rows[0].api_key_hash).toMatch(/^[0-9a-f]{64}$/);
-      expect(rows[0].api_key_hash).not.toContain(apiKey.slice(3, 20));
+      expect(rows[0].key_hash).toBe(hashApiKey(apiKey));
+      expect(rows[0].key_hash).toMatch(/^[0-9a-f]{64}$/);
+      expect(rows[0].key_hash).not.toContain(apiKey.slice(3, 20));
     });
 
     it.each([

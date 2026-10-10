@@ -86,4 +86,72 @@ describe('Database migrations (e2e)', () => {
       expect(await tableNames(dataSource)).toEqual(['migrations']);
     });
   });
+
+  // Data, not just schema: existing keys must keep working across the split.
+  describe('moving API keys into api_key', () => {
+    const SPLIT = 'SplitApiKeys1791578838865';
+    const before = loadMigrations().filter((m) => m.name !== SPLIT);
+    let dataSource: DataSource;
+
+    beforeAll(async () => {
+      const old = await createTestDataSource({
+        database: MIGRATION_TEST_DATABASE,
+        migrations: before,
+      }).initialize();
+      await old.runMigrations();
+      await old.query(
+        `INSERT INTO api_client (name, api_key_hash) VALUES ('a', REPEAT('a', 64)), ('b', REPEAT('b', 64))`,
+      );
+      await old.destroy();
+      dataSource = await createTestDataSource({
+        database: MIGRATION_TEST_DATABASE,
+      }).initialize();
+    });
+
+    afterAll(async () => {
+      while ((await executedMigrationNames(dataSource)).length > 0) {
+        await dataSource.undoLastMigration();
+      }
+      await dataSource.destroy();
+    });
+
+    it('copies each client key on the way up', async () => {
+      await dataSource.runMigrations();
+
+      const rows: { name: string; key_hash: string; revoked_at: unknown }[] =
+        await dataSource.query(
+          `SELECT c.name, k.key_hash, k.revoked_at FROM api_key k
+           JOIN api_client c ON c.id = k.client_id ORDER BY c.name`,
+        );
+      expect(rows).toEqual([
+        { name: 'a', key_hash: 'a'.repeat(64), revoked_at: null },
+        { name: 'b', key_hash: 'b'.repeat(64), revoked_at: null },
+      ]);
+    });
+
+    it('puts back the newest active key on the way down', async () => {
+      const [{ id }]: { id: number }[] = await dataSource.query(
+        `SELECT id FROM api_client WHERE name = 'a'`,
+      );
+      await dataSource.query(
+        `UPDATE api_key SET revoked_at = NOW(3) WHERE client_id = ?`,
+        [id],
+      );
+      await dataSource.query(
+        `INSERT INTO api_key (client_id, key_hash) VALUES (?, REPEAT('c', 64))`,
+        [id],
+      );
+
+      await dataSource.undoLastMigration();
+
+      const rows: { name: string; api_key_hash: string }[] =
+        await dataSource.query(
+          'SELECT name, api_key_hash FROM api_client ORDER BY name',
+        );
+      expect(rows).toEqual([
+        { name: 'a', api_key_hash: 'c'.repeat(64) },
+        { name: 'b', api_key_hash: 'b'.repeat(64) },
+      ]);
+    });
+  });
 });

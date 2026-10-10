@@ -4,9 +4,7 @@
 -- percent of failures, push rows owned by 10,000 users.
 SET SESSION cte_max_recursion_depth = 100000;
 
-INSERT INTO api_client (name, api_key_hash) VALUES
-  ('explain-a', REPEAT('a', 64)),
-  ('explain-b', REPEAT('b', 64));
+INSERT INTO api_client (name) VALUES ('explain-a'), ('explain-b');
 
 INSERT INTO template (`key`, channel, subject, html_body, text_body, title, body, data, required_variables, version) VALUES
   ('email-verification', 'email', 'Code {{n}}', '<p>{{n}}</p>', '{{n}}', NULL, NULL, NULL, '["n"]', 1),

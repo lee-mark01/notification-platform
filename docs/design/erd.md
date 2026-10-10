@@ -14,6 +14,7 @@ Phase 2 이후 구현할 테이블의 구조, 인덱스, 관계를 정리한다.
 
 ```mermaid
 erDiagram
+    api_client ||--o{ api_key : "holds"
     api_client ||--o{ idempotency_key : "owns"
     api_client ||--o{ notification : "requests"
     api_client ||--o{ notification_batch : "requests"
@@ -28,8 +29,14 @@ erDiagram
     api_client {
         int id PK
         varchar name
-        char api_key_hash UK
         datetime created_at
+    }
+    api_key {
+        int id PK
+        int client_id FK
+        char key_hash UK
+        datetime created_at
+        datetime revoked_at
     }
     app_user {
         bigint id PK
@@ -139,14 +146,25 @@ erDiagram
 
 알림을 요청하는 내부 서비스. 멱등 키의 범위("어느 클라이언트의 키인가")와 인증 주체다.
 
-| 컬럼         | 타입            | 설명                                     |
-| ------------ | --------------- | ---------------------------------------- |
-| id           | INT UNSIGNED PK |                                          |
-| name         | VARCHAR(100)    | 서비스 이름                              |
-| api_key_hash | CHAR(64)        | API 키의 SHA-256. 원문은 저장하지 않는다 |
-| created_at   | DATETIME(3)     |                                          |
+| 컬럼       | 타입            | 설명        |
+| ---------- | --------------- | ----------- |
+| id         | INT UNSIGNED PK |             |
+| name       | VARCHAR(100)    | 서비스 이름 |
+| created_at | DATETIME(3)     |             |
 
-- `uq_api_client_api_key_hash (api_key_hash)`: 요청마다 키로 클라이언트를 찾는다.
+### api_key (Phase 9)
+
+클라이언트의 API 키. 처음에는 `api_client.api_key_hash` 한 칸이었는데, 그러면 키를 바꾸는 순간 옛 키로 오는 요청이 모두 실패한다. 키를 분리해 클라이언트 하나가 여러 키를 갖게 했다(새 키 발급 → 호출 서비스 교체 → 옛 키 폐기). 클라이언트 id는 그대로라 그동안의 알림과 멱등 키가 이어진다.
+
+| 컬럼       | 타입             | 설명                                      |
+| ---------- | ---------------- | ----------------------------------------- |
+| id         | INT UNSIGNED PK  |                                           |
+| client_id  | INT UNSIGNED FK  | 클라이언트 삭제 시 함께 삭제              |
+| key_hash   | CHAR(64)         | API 키의 SHA-256. 원문은 저장하지 않는다  |
+| created_at | DATETIME(3)      |                                           |
+| revoked_at | DATETIME(3) NULL | NULL이면 사용 가능, 값이 있으면 즉시 거부 |
+
+- `uq_api_key_key_hash (key_hash)`: 요청마다 키로 클라이언트를 찾는다.
 
 ### app_user (Phase 2)
 
