@@ -1,5 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="700" viewBox="0 0 1200 700" font-family='"Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif'>
-<rect width="1200" height="700" fill="#FFFFFF"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="892" viewBox="0 0 1200 892" font-family='"Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif'>
+<rect width="1200" height="892" fill="#FFFFFF"/>
 <text x="48" y="52" font-size="26" font-weight="700" fill="#0F172A" text-anchor="start">알림 100만 건에서 관리자 쿼리 전후 (EXPLAIN ANALYZE)</text>
 <text x="48" y="84" font-size="16" font-weight="400" fill="#475569" text-anchor="start">MySQL 8.4 · 90일치 데이터 중 7일 = 77,825건 · 버퍼 풀을 데운 뒤 측정</text>
 <text x="48" y="128" font-size="16" font-weight="700" fill="#475569" text-anchor="start">쿼리</text>
@@ -39,5 +39,18 @@
 <text x="700" y="584" font-size="20" font-weight="700" fill="#0F766E" text-anchor="end">49.8 ms</text>
 <text x="740" y="572" font-size="15" font-weight="400" fill="#0F172A" text-anchor="start">먼저 집계 후 키 매핑: 읽는 행 999,999 → 77,825, 커버링</text>
 <text x="740" y="600" font-size="15" font-weight="700" fill="#0F766E" text-anchor="start">약 86배</text>
-<text x="48" y="672" font-size="14" font-weight="400" fill="#475569" text-anchor="start">재현: load/explain/run.sh setup → measure · 원자료 load/explain/results/</text>
+<text x="48" y="668" font-size="18" font-weight="700" fill="#0F172A" text-anchor="start">수신 주소 검색 7일</text>
+<text x="48" y="696" font-size="13" font-weight="400" fill="#475569" text-anchor="start">전 ix_notification_created_at → 후 ix_notification_email_created</text>
+<text x="560" y="680" font-size="20" font-weight="700" fill="#B45309" text-anchor="end">185 ms</text>
+<text x="700" y="680" font-size="20" font-weight="700" fill="#0F766E" text-anchor="end">0.08 ms</text>
+<text x="740" y="668" font-size="15" font-weight="400" fill="#0F172A" text-anchor="start">(recipient_email, created_at) 인덱스: 주소로 바로 찾음</text>
+<text x="740" y="696" font-size="15" font-weight="700" fill="#0F766E" text-anchor="start">약 2,333배</text>
+<rect x="32" y="726" width="1136" height="96" fill="#F1F5F9" rx="8"/>
+<text x="48" y="764" font-size="18" font-weight="700" fill="#0F172A" text-anchor="start">수신 주소 검색 92일</text>
+<text x="48" y="792" font-size="13" font-weight="400" fill="#475569" text-anchor="start">전 ix_notification_created_at → 후 ix_notification_email_created</text>
+<text x="560" y="776" font-size="20" font-weight="700" fill="#B45309" text-anchor="end">5648 ms</text>
+<text x="700" y="776" font-size="20" font-weight="700" fill="#0F766E" text-anchor="end">0.07 ms</text>
+<text x="740" y="764" font-size="15" font-weight="400" fill="#0F172A" text-anchor="start">같은 인덱스. 전에는 92일치를 역순으로 다 읽어야 했음</text>
+<text x="740" y="792" font-size="15" font-weight="700" fill="#0F766E" text-anchor="start">약 83,304배</text>
+<text x="48" y="864" font-size="14" font-weight="400" fill="#475569" text-anchor="start">재현: load/explain/run.sh setup → measure · 원자료 load/explain/results/</text>
 </svg>

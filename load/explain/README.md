@@ -23,11 +23,21 @@
 5. **통계 두 쿼리를 덮는 인덱스.** `read_at`(읽음 집계)과 `template_id`가 인덱스에 없어 행을 읽어야 했다. 기존 인덱스를 `(created_at, channel, category, status, template_id, read_at)`로 넓혀 두 쿼리 모두 인덱스만 읽는다.
 6. 덤으로 찾은 버그: `deleted_at IS NULL` 조건이 붙은 inner join 때문에 삭제된 템플릿으로 보낸 알림이 이력과 읽음률에서 빠지고 있었다. join을 없애며 같이 고쳤다(E2E 추가).
 
+## 추가: 수신 주소 검색 (#107)
+
+"메일이 안 왔어요" 추적은 수신 주소로 이력을 찾는다([운영 가이드](../../docs/operations.md#7-메일이-안-왔어요-한-건-추적)). 주소 하나는 90일에 13건쯤인데, 인덱스가 없으면 기간 범위를 역순으로 읽으며 주소를 거른다. 맞는 행이 51건에 못 미치니 멈출 수 없고, 기간 전체를 읽는다.
+
+| 쿼리                | 전      | 후     | 읽은 행      |
+| ------------------- | ------- | ------ | ------------ |
+| 수신 주소 검색 7일  | 185ms   | 0.08ms | 77,825 → 2   |
+| 수신 주소 검색 92일 | 5,648ms | 0.07ms | 999,999 → 13 |
+
+`(recipient_email, created_at)` 인덱스(100만 건에 37.6MB)를 더했다. 같은 주소의 행이 시간순으로 모여 있어 역순으로 읽으면 정렬도 필요 없다. 다른 검색은 그대로다(필터 없는 7일 이력 0.34ms). 계획 원문은 `results/9-email-before`, `results/10-email-after`.
+
 ## 비용
 
-- 인덱스 크기(100만 건): `ix_notification_stats` 60.7MB, `ix_notification_created_at` 23.5MB. 테이블(PK) 164.7MB.
+- 인덱스 크기(100만 건): `ix_notification_stats` 60.7MB, `ix_notification_email_created` 37.6MB, `ix_notification_created_at` 23.5MB. 테이블(PK) 164.7MB.
 - `read_at`이 인덱스에 들어가 읽음 처리(UPDATE) 때 이 인덱스도 고친다. 읽음은 알림당 한 번이라 받아들였다.
-- 이메일 주소 검색(`email`)은 기간 안에서만 거른다. 자주 쓰이면 `(recipient_email, created_at)`를 더한다.
 
 ## 다시 재기
 

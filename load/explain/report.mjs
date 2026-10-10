@@ -20,6 +20,21 @@ const CASES = [
   ],
   ['통계 요약 7일', 's1-summary-7d', 's1-summary-7d'],
   ['템플릿별 읽음률 7일', 's2-read-rates-7d', 's2-read-rates-7d.nojoin'],
+  // #107, measured separately: before and after the email index alone.
+  [
+    '수신 주소 검색 7일',
+    'h4-history-email-7d',
+    'h4-history-email-7d',
+    '9-email-before',
+    '10-email-after',
+  ],
+  [
+    '수신 주소 검색 92일',
+    'h5-history-email-92d',
+    'h5-history-email-92d',
+    '9-email-before',
+    '10-email-after',
+  ],
 ];
 
 function measure(label, name) {
@@ -55,11 +70,13 @@ function measure(label, name) {
   return { ms, index, rows, how };
 }
 
-const rows = CASES.map(([title, before, after]) => ({
-  title,
-  before: measure('1-before', before),
-  after: measure('8-final', after),
-}));
+const rows = CASES.map(
+  ([title, before, after, beforeDir = '1-before', afterDir = '8-final']) => ({
+    title,
+    before: measure(beforeDir, before),
+    after: measure(afterDir, after),
+  }),
+);
 const fmt = (ms) =>
   ms >= 100 ? ms.toFixed(0) : ms >= 1 ? ms.toFixed(1) : ms.toFixed(2);
 const factor = (r) => Math.round(r.before.ms / r.after.ms);
@@ -115,6 +132,8 @@ const change = [
   '이미 (user_id, created_at) 인덱스 사용, 그대로',
   '통계용 커버링 인덱스: 행을 읽지 않음',
   '먼저 집계 후 키 매핑: 읽는 행 999,999 → 77,825, 커버링',
+  '(recipient_email, created_at) 인덱스: 주소로 바로 찾음',
+  '같은 인덱스. 전에는 92일치를 역순으로 다 읽어야 했음',
 ];
 rows.forEach((r, i) => {
   const y = top + i * rowH;

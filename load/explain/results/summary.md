@@ -5,3 +5,5 @@
 | 발송 이력, 사용자 1명 30일    | 0.16    | 0.10    | ix_notification_user_created, 11행 hash join, DISTINCT 임시 테이블          | ix_notification_user_created, 11행 reverse  |
 | 통계 요약 7일                 | 136     | 56.2    | ix_notification_created_channel, 77,825행                                   | ix_notification_stats, 77,825행 covering    |
 | 템플릿별 읽음률 7일           | 4290    | 49.8    | fk_notification_template, 999,999행 template부터 nested loop                | ix_notification_stats, 77,825행 covering    |
+| 수신 주소 검색 7일            | 185     | 0.08    | ix_notification_created_at, 77,825행 reverse                                | ix_notification_email_created, 2행 reverse  |
+| 수신 주소 검색 92일           | 5648    | 0.07    | ix_notification_created_at, 999,999행 reverse                               | ix_notification_email_created, 13행 reverse |

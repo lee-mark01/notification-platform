@@ -1,0 +1,4 @@
+-> Limit: 51 row(s)  (cost=116283 rows=51) (actual time=21.5..185 rows=2 loops=1)
+    -> Filter: (n.recipient_email = 'r12345@example.com')  (cost=116283 rows=14595) (actual time=21.4..185 rows=2 loops=1)
+        -> Index range scan on n using ix_notification_created_at over ('2026-10-03 00:00:00.000' <= created_at < '2026-10-10 00:00:00.000') (reverse), with index condition: ((n.created_at >= TIMESTAMP'2026-10-03 00:00:00') and (n.created_at < TIMESTAMP'2026-10-10 00:00:00'))  (cost=116283 rows=145948) (actual time=0.0331..179 rows=77825 loops=1)
+
