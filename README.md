@@ -128,8 +128,12 @@ SES와 FCM에는 멱등 키가 없어 exactly-once는 불가능합니다. 전달
 ```bash
 cp .env.example .env
 docker compose up -d
-npm ci && npm run migration:run && npm run start:dev
+npm ci
+npm run migration:run    # 스키마 생성. client:create, user:token도 이 단계 뒤에 동작합니다
+npm run start:dev
 ```
+
+코드를 새로 받은 뒤(`git pull`)에도 `npm run migration:run`을 먼저 실행합니다. 새 마이그레이션이 적용되지 않으면 앱과 CLI가 없는 테이블·컬럼을 찾다 실패합니다(예: API 키가 `api_key` 테이블로 옮겨진 뒤의 `client:create`). 적용 여부는 `npm run migration:show`로 확인합니다.
 
 `docker compose up -d`는 MySQL과 Redis만 띄웁니다. 앱까지 컨테이너로 실행하려면 `docker compose --profile app up -d --build`를 사용합니다. 이때 `migrate` 서비스가 먼저 마이그레이션을 실행하고 종료하며, 성공해야 `app`이 시작됩니다.
 
@@ -241,6 +245,13 @@ npm run client:key -- revoke 1        # 키 폐기, 즉시 401
 - 운영자는 `GET /admin/stats/summary`로 기간·채널·유형별 상태 건수, 성공률, 읽음률을 봅니다. 성공률에서 정책으로 막힌 `SUPPRESSED`와 처리 중인 건은 뺍니다(실패가 아니므로).
 - 운영자는 `GET /admin/stats/read-rates`로 템플릿·채널별 읽음률(푸시는 클릭·알림함, 이메일은 Open 이벤트 기준 근사치)을 봅니다.
 - 운영자는 `X-Admin-Key`로 `GET /admin/dlq`(DEAD 목록)와 `POST /admin/dlq/redrive`(다시 보내기)를 씁니다. DEAD가 아닌 건은 건너뛰므로 같은 redrive를 두 번 눌러도 한 번만 다시 보냅니다(E2E: DEAD → redrive → SENT).
+
+  아래는 전용 스택에서 실제로 만든 DEAD입니다. Worker가 잘못된 AWS 자격 증명으로 SES에 보내 인증 오류(`UnrecognizedClientException`)를 받았고, 일시 오류로 분류돼 5번 시도 후 DEAD가 됐습니다. 자격 증명을 고친 뒤(여기서는 FakeProvider로 전환) redrive하자 3건 모두 `SENT`가 됐고, DEAD가 아닌 id 99는 건너뛰었습니다. 관리자 키가 들어 있는 curl 부분은 가렸습니다.
+
+  ![GET /admin/dlq: 인증 오류로 5번 시도 후 DEAD가 된 알림 3건](docs/images/p3-dlq-list.png)
+
+  ![POST /admin/dlq/redrive: 3건 다시 등록, DEAD가 아닌 99는 건너뜀](docs/images/p3-dlq-redrive.png)
+
 - 커밋 후 큐 등록에 실패해 `PENDING`으로 남은 알림은 Sweeper가 다시 등록합니다. Outbox 테이블 대신 알림 행의 상태를 안전망으로 씁니다([ADR-0003](docs/adr/0003-sweeper-over-outbox.md)).
   - BullMQ job scheduler로 30초마다, 인스턴스가 여러 개여도 한 번만 돕니다.
   - 오래 머문 `QUEUED`·`RETRYING`·`SENDING` 중 job이 사라진 것도 다시 넣습니다.
@@ -374,6 +385,10 @@ npm run user:token -- me@example.com    # 페이지에 붙여넣을 JWT
 ```
 
 API는 `PUSH_PROVIDER=fcm`, `CORS_ORIGINS=http://localhost:8080`으로 띄웁니다. 페이지에서 알림을 허용해 등록한 뒤 `POST /notifications`로 그 사용자(`recipient.userId`)에게 push를 보내면 브라우저 알림이 뜹니다. 알림을 누르면 데모 페이지가 열리고(이미 열려 있으면 앞으로) `PATCH /me/notifications/{id}/read`로 읽음이 기록됩니다. 서비스 워커의 클릭 처리는 Firebase SDK보다 먼저 등록해야 합니다(SDK의 클릭 처리기가 다른 처리기를 막기 때문).
+
+아래는 실제 FCM으로 보낸 결과입니다. 위 터미널에서 `POST /notifications`(push, userId 3)를 보내자 브라우저 알림이 떴습니다.
+
+![POST /notifications로 보낸 push가 FCM을 거쳐 브라우저 알림으로 도착](docs/images/p2-web-push.gif)
 
 ## 템플릿 API
 
