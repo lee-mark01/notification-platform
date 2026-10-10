@@ -274,7 +274,10 @@ describe('Send workers (e2e)', () => {
       const id = await insertNotification({
         status: NotificationStatus.Sending,
         attemptCount: 1,
-        leaseUntil: new Date(Date.now() + 1_500),
+        // Long enough that a worker slowed by a busy machine still finds the
+        // lease live; with 1.5 s it once arrived after expiry and sent at
+        // once, so the job never showed as delayed.
+        leaseUntil: new Date(Date.now() + 4_000),
       });
       const queue = getQueue(app, QueueNames.EmailTransactional);
       await queue.add(
