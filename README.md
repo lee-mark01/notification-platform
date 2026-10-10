@@ -128,8 +128,12 @@ SES와 FCM에는 멱등 키가 없어 exactly-once는 불가능합니다. 전달
 ```bash
 cp .env.example .env
 docker compose up -d
-npm ci && npm run migration:run && npm run start:dev
+npm ci
+npm run migration:run    # 스키마 생성. client:create, user:token도 이 단계 뒤에 동작합니다
+npm run start:dev
 ```
+
+코드를 새로 받은 뒤(`git pull`)에도 `npm run migration:run`을 먼저 실행합니다. 새 마이그레이션이 적용되지 않으면 앱과 CLI가 없는 테이블·컬럼을 찾다 실패합니다(예: API 키가 `api_key` 테이블로 옮겨진 뒤의 `client:create`). 적용 여부는 `npm run migration:show`로 확인합니다.
 
 `docker compose up -d`는 MySQL과 Redis만 띄웁니다. 앱까지 컨테이너로 실행하려면 `docker compose --profile app up -d --build`를 사용합니다. 이때 `migrate` 서비스가 먼저 마이그레이션을 실행하고 종료하며, 성공해야 `app`이 시작됩니다.
 
