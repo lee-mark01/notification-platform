@@ -133,7 +133,13 @@ describe('Send policy: suppression and marketing consent (e2e)', () => {
       const row = await settled(first, NotificationStatus.Failed);
       expect(row.lastErrorCode).toBe('BadRequestException');
       expect(await attempts(first)).toBe(1);
-      expect(await suppressions()).toEqual([
+      // The worker suppresses the address right after it commits FAILED, so
+      // the row can trail the status by a moment.
+      const suppressed = await waitFor(async () => {
+        const rows = await suppressions();
+        return rows.length > 0 ? rows : undefined;
+      });
+      expect(suppressed).toEqual([
         expect.objectContaining({
           email: 'bad@example.com',
           reason: 'INVALID_ADDRESS',

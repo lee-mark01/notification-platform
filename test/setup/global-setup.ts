@@ -1,5 +1,6 @@
 import { MySqlContainer, StartedMySqlContainer } from '@testcontainers/mysql';
 import { RedisContainer, StartedRedisContainer } from '@testcontainers/redis';
+import { MYSQL_IMAGE, REDIS_IMAGE } from '../support/images';
 
 declare global {
   var __MYSQL_CONTAINER__: StartedMySqlContainer | undefined;
@@ -12,7 +13,7 @@ export const MIGRATION_TEST_DATABASE = 'migration_test';
 // serially (--runInBand), so they can share them without interfering.
 export default async function globalSetup(): Promise<void> {
   const [mysql, redis] = await Promise.all([
-    new MySqlContainer('mysql:8.4')
+    new MySqlContainer(MYSQL_IMAGE)
       .withDatabase('notification_test')
       .withUsername('app')
       .withUserPassword('app_password')
@@ -23,7 +24,7 @@ export default async function globalSetup(): Promise<void> {
       ])
       .start(),
     // Same eviction policy as docker-compose.yml; BullMQ requires it.
-    new RedisContainer('redis:7.4-alpine')
+    new RedisContainer(REDIS_IMAGE)
       .withCommand(['redis-server', '--maxmemory-policy', 'noeviction'])
       .start(),
   ]);
